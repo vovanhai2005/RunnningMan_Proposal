@@ -1,0 +1,295 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #14161f;
+  --paper: #ffffff;
+  --muted: #5b6170;
+  --line: #e4e6ec;
+  --accent: #ff5b14;
+  --accent-press: #e04a08;
+  --yellow: #ffc727;
+  --ok: #12a150;
+  --bad: #e5243b;
+  --blue: #2d7ff9;
+  --night: #101320;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-yellow: var(--yellow);
+  --color-ok: var(--ok);
+  --color-bad: var(--bad);
+  --color-night: var(--night);
+  --font-sans: var(--font-be-vietnam), system-ui, -apple-system, sans-serif;
+}
+
+/* Ràng buộc Safari iOS (mục 3): không kéo để tải lại, không vuốt cuộn trang */
+html,
+body {
+  height: 100%;
+  overscroll-behavior: none;
+  background: var(--night);
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.45;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+input,
+textarea,
+button {
+  font: inherit;
+}
+/* Chữ ô nhập ≥ 16px để Safari không tự phóng to */
+input {
+  font-size: 18px;
+}
+
+.app-screen {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+/* Nút chính ~56pt, nút phụ ≥ 44pt */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 16px;
+  font-weight: 700;
+  transition:
+    transform 0.08s ease,
+    background-color 0.15s ease,
+    opacity 0.15s;
+  user-select: none;
+  touch-action: manipulation;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.55;
+}
+.btn-primary {
+  min-height: 56px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 19px;
+  box-shadow: 0 6px 0 var(--accent-press);
+}
+.btn-primary:active {
+  box-shadow: 0 2px 0 var(--accent-press);
+  transform: translateY(4px);
+}
+.btn-dark {
+  background: var(--ink);
+  color: #fff;
+}
+.btn-ghost {
+  background: #f1f2f5;
+  color: var(--ink);
+}
+
+.field {
+  width: 100%;
+  min-height: 56px;
+  border-radius: 14px;
+  border: 2px solid var(--line);
+  background: #fff;
+  padding: 0 16px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.field:focus {
+  border-color: var(--ink);
+}
+.field.is-wrong {
+  border-color: var(--bad);
+  animation: shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes shake {
+  10%,
+  90% {
+    transform: translateX(-2px);
+  }
+  20%,
+  80% {
+    transform: translateX(4px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-8px);
+  }
+  40%,
+  60% {
+    transform: translateX(8px);
+  }
+}
+
+/* Thẻ trượt lên từ đáy */
+.sheet-enter {
+  animation: sheet-up 0.32s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+.fade-in {
+  animation: fade-in 0.25s ease;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.pop-in {
+  animation: pop-in 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes pop-in {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+
+/* Nền màn chào mừng: sọc chéo kiểu show thực tế */
+.race-stripes {
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(255, 91, 20, 0.35), transparent 60%),
+    repeating-linear-gradient(
+      -55deg,
+      rgba(255, 199, 39, 0.07) 0 22px,
+      transparent 22px 54px
+    ),
+    var(--night);
+}
+.race-title {
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.12; /* đủ chỗ cho dấu tiếng Việt chồng hai tầng */
+  text-transform: uppercase;
+  font-style: italic;
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* ---- Marker trên bản đồ (MapLibre đặt tâm marker đúng tọa độ) ---- */
+.rm-avatar {
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+.rm-avatar img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  object-fit: cover;
+  background: #fff;
+  box-shadow:
+    0 3px 10px rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(45, 127, 249, 0.35);
+  position: relative;
+}
+.rm-avatar-dir {
+  position: absolute;
+  inset: -12px;
+  transition:
+    transform 0.6s ease,
+    opacity 0.3s;
+  pointer-events: none;
+}
+.rm-avatar-arrow {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 11px solid var(--blue);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}
+.rm-dest {
+  position: relative;
+  width: 44px;
+  height: 44px;
+}
+.rm-dest-pin {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--yellow);
+  border: 3px solid #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+.rm-dest-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+}
+.rm-dest.is-near .rm-dest-ring {
+  animation: ripple 2.2s ease-out infinite;
+}
+.rm-dest.is-near .rm-dest-ring-2 {
+  animation-delay: 1.1s;
+}
+@keyframes ripple {
+  from {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+/* Ghi công OpenStreetMap: đặt dưới thanh đồng hồ/tiến độ */
+.maplibregl-ctrl-top-right {
+  top: calc(env(safe-area-inset-top) + 60px);
+}
+.maplibregl-ctrl-attrib {
+  font-size: 11px;
+}
+.rm-svg-pulse {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: ripple 2.2s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

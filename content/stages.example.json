@@ -1,0 +1,48 @@
+{
+  "stages": [
+    {
+      "order": 1,
+      "title": "Nơi bắt đầu của mọi thứ",
+      "lat": 21.0287797,
+      "lng": 105.8524247,
+      "puzzle": "NỘI DUNG THỬ. Hồ nước giữa lòng Hà Nội, gắn với truyền thuyết trả gươm cho Rùa Thần. Hồ này tên là gì?",
+      "puzzleImage": null,
+      "answers": ["Hồ Gươm", "Hồ Hoàn Kiếm", "Hoàn Kiếm"],
+      "hints": ["Tên gọi khác của hồ có chữ \"Kiếm\".", "Hồ ___ Kiếm"],
+      "successMessage": "Chính xác! Nhiệm vụ 1 hoàn thành. Ban tổ chức đã mở khóa điểm đến tiếp theo."
+    },
+    {
+      "order": 2,
+      "title": "Ly cà phê đầu tiên",
+      "lat": 21.0368,
+      "lng": 105.8342,
+      "puzzle": "NỘI DUNG THỬ. Nơi Bác Hồ đọc Tuyên ngôn Độc lập năm 1945 là quảng trường nào?",
+      "puzzleImage": null,
+      "answers": ["Ba Đình", "Quảng trường Ba Đình"],
+      "hints": ["Quận có cùng tên với quảng trường.", "Ba ___"],
+      "successMessage": "Tuyệt vời! Nhiệm vụ 2 hoàn thành."
+    },
+    {
+      "order": 3,
+      "title": "Hoàng hôn ngày ấy",
+      "lat": 21.0545,
+      "lng": 105.8371,
+      "puzzle": "NỘI DUNG THỬ. Hồ nước lớn nhất Hà Nội là hồ gì?",
+      "puzzleImage": null,
+      "answers": ["Hồ Tây", "Tây Hồ"],
+      "hints": ["Ngược với hướng Đông."],
+      "successMessage": "Giỏi quá! Chỉ còn một nhiệm vụ nữa thôi."
+    },
+    {
+      "order": 4,
+      "title": "Đích đến",
+      "lat": 21.0679,
+      "lng": 105.8235,
+      "puzzle": "NỘI DUNG THỬ. 7 + 7 = ?",
+      "puzzleImage": null,
+      "answers": ["14", "mười bốn"],
+      "hints": ["Hai số bảy."],
+      "successMessage": "Bạn đã vượt qua mọi thử thách!"
+    }
+  ]
+}
