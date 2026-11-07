@@ -1,18 +1,16 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { PublicPuzzle } from "@/lib/types";
-import { Kicker, Sheet, Spinner } from "./ui";
+import { Sheet, Spinner, StageTag } from "./ui";
 
 export type AnswerOutcome = { error?: string; newHint?: boolean } | null;
 
 export function PuzzleSheet({
   puzzle,
-  totalStages,
   onAnswer,
   onClose,
 }: {
   puzzle: PublicPuzzle;
-  totalStages: number;
   onAnswer?: (answer: string) => Promise<AnswerOutcome>;
   onClose: () => void;
 }) {
@@ -53,13 +51,13 @@ export function PuzzleSheet({
 
   return (
     <Sheet onClose={onClose} closeLabel={puzzle.readOnly ? "Đóng" : "Xem bản đồ"}>
-      <Kicker className="mt-2">
-        Nhiệm vụ {puzzle.order}/{totalStages}
-        {puzzle.readOnly ? " · Đã hoàn thành" : " · Câu đố"}
-      </Kicker>
-      <h2 className="mt-1 pr-28 text-[24px] font-extrabold leading-tight">{puzzle.title}</h2>
+      <div className="mt-2 flex items-center gap-2 pr-32">
+        <StageTag>Nhiệm vụ {puzzle.order}</StageTag>
+        {puzzle.readOnly && <span className="text-[14px] font-semibold text-ok">Đã hoàn thành</span>}
+      </div>
+      <h2 className="display-title mt-3 text-[27px]">{puzzle.title}</h2>
 
-      <div className="mt-4 whitespace-pre-line rounded-2xl bg-[#F6F7F9] p-4 text-[18px] leading-relaxed">
+      <div className="mt-4 whitespace-pre-line rounded-3xl border-2 border-dashed border-butter-deep/40 bg-cream p-5 text-[18px] leading-relaxed">
         {puzzle.text}
       </div>
       {puzzle.imageUrl && (
@@ -67,18 +65,18 @@ export function PuzzleSheet({
         <img
           src={puzzle.imageUrl}
           alt="Hình ảnh câu đố"
-          className="mt-3 w-full rounded-2xl border border-line object-contain"
+          className="mt-3 w-full rounded-3xl border-2 border-line object-contain"
         />
       )}
 
       {puzzle.hints.length > 0 && (
         <div
           ref={hintsRef}
-          className={`mt-4 rounded-2xl border-2 p-4 transition-colors ${
-            hintFlash ? "border-yellow bg-[#FFF3C9]" : "border-[#FFE7A0] bg-[#FFF9E6]"
+          className={`mt-4 rounded-3xl border-[1.5px] p-4 transition-colors ${
+            hintFlash ? "border-peri bg-[#DDE2FF]" : "border-[#D3D8FB] bg-[#F1F3FF]"
           }`}
         >
-          <div className="mb-1 text-[13px] font-extrabold uppercase tracking-[0.12em] text-[#9A6B00]">
+          <div className="mb-1 text-[15px] font-bold text-peri-deep">
             💡 Gợi ý từ Ban tổ chức
           </div>
           <ul className="flex flex-col gap-1.5">
@@ -93,13 +91,13 @@ export function PuzzleSheet({
 
       {puzzle.readOnly ? (
         puzzle.successMessage && (
-          <div className="mt-4 rounded-2xl bg-[#E7F6EE] p-4 font-semibold text-[#0B6B35]">
+          <div className="mt-4 rounded-3xl bg-[#E2F6EE] p-4 font-medium text-[#17694F]">
             ✓ {puzzle.successMessage}
           </div>
         )
       ) : (
         <form onSubmit={submit} className="mt-5 flex flex-col gap-3">
-          <label htmlFor="answer" className="text-[15px] font-semibold text-muted">
+          <label htmlFor="answer" className="pl-1 text-[15px] font-semibold text-muted">
             Đáp án của bạn
           </label>
           <input
@@ -122,7 +120,7 @@ export function PuzzleSheet({
             placeholder="Nhập đáp án…"
           />
           {feedback && (
-            <p role="alert" className="font-semibold text-bad fade-in">
+            <p role="alert" className="pl-1 font-medium text-bad fade-in">
               {feedback}
             </p>
           )}

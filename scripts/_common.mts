@@ -6,7 +6,7 @@ export function need(name: string, ...alts: string[]): string {
     const v = process.env[n];
     if (v) return v;
   }
-  console.error(`✗ Thiếu biến môi trường ${name}. Kiểm tra file .env.local (xem .env.example).`);
+  console.error(`✗ Thiếu biến môi trường ${name}. Kiểm tra file .env hoặc .env.local (xem .env.example).`);
   process.exit(1);
 }
 

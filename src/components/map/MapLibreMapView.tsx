@@ -12,7 +12,7 @@ import type { MapViewProps } from "./types";
  */
 const STYLE_URL =
   process.env.NEXT_PUBLIC_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/liberty";
-const ACCENT = "#FF5B14";
+const ACCENT = "#F0468A";
 const TOP_INSET = 96;
 /** Quá thời gian này mà bản đồ chưa tải xong thì chuyển sang bản dự phòng */
 const LOAD_TIMEOUT_MS = 20000;
@@ -130,7 +130,7 @@ export default function MapLibreMapView({
       const destEl = document.createElement("div");
       destEl.innerHTML =
         '<div class="rm-dest"><span class="rm-dest-ring"></span><span class="rm-dest-ring rm-dest-ring-2"></span>' +
-        '<div class="rm-dest-pin"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M5 21V4h9.2l.4 2H20v10h-6.6l-.4-2H7v7H5Z"/></svg></div></div>';
+        '<div class="rm-dest-pin"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 1l2.8 8.2L23 12l-8.2 2.8L12 23l-2.8-8.2L1 12l8.2-2.8z"/></svg></div></div>';
       destRef.current = new lib.Marker({ element: destEl, anchor: "center" })
         .setLngLat(ll(latest.current.dest))
         .addTo(map);
@@ -150,11 +150,11 @@ export default function MapLibreMapView({
           map.addSource(id, { type: "geojson", data: empty });
         }
         const round = { "line-cap": "round", "line-join": "round" } as const;
-        map.addLayer({ id: "traveled", type: "line", source: "traveled", layout: round, paint: { "line-color": "#8A8F9C", "line-opacity": 0.55, "line-width": 5 } });
+        map.addLayer({ id: "traveled", type: "line", source: "traveled", layout: round, paint: { "line-color": "#A9A6CF", "line-opacity": 0.55, "line-width": 5 } });
         map.addLayer({ id: "remaining-casing", type: "line", source: "remaining", layout: round, paint: { "line-color": "#ffffff", "line-width": 10 } });
         map.addLayer({ id: "remaining", type: "line", source: "remaining", layout: round, paint: { "line-color": ACCENT, "line-width": 6 } });
         map.addLayer({ id: "remaining-approx", type: "line", source: "remaining", layout: { ...round, visibility: "none" }, paint: { "line-color": ACCENT, "line-width": 5, "line-dasharray": [0.1, 2.5] } });
-        map.addLayer({ id: "offroute", type: "line", source: "offroute", layout: round, paint: { "line-color": "#14161F", "line-width": 3, "line-dasharray": [1, 2.5] } });
+        map.addLayer({ id: "offroute", type: "line", source: "offroute", layout: round, paint: { "line-color": "#2B2160", "line-width": 3, "line-dasharray": [1, 2.5] } });
         setReady(true);
       });
     })();
@@ -315,7 +315,7 @@ export default function MapLibreMapView({
 
   // MapLibre gán `position: relative` cho khung bản đồ, nên vị trí tuyệt đối đặt ở lớp ngoài
   return (
-    <div className="absolute inset-0 bg-[#EAF0E6]">
+    <div className="absolute inset-0 bg-sky">
       <div ref={containerRef} className="h-full w-full" />
     </div>
   );

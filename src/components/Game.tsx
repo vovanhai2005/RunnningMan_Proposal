@@ -267,7 +267,7 @@ export default function Game() {
 
   if (phase === "loading") {
     return (
-      <main className="app-screen race-stripes grid place-items-center text-white">
+      <main className="app-screen sky grid place-items-center text-accent">
         <Spinner className="h-8 w-8" />
       </main>
     );
@@ -335,7 +335,7 @@ export default function Game() {
           fresh={justFinished}
         />
         {sheet === "view" && puzzle && (
-          <PuzzleSheet puzzle={puzzle} totalStages={state.totalStages} onClose={() => setSheet(null)} />
+          <PuzzleSheet puzzle={puzzle} onClose={() => setSheet(null)} />
         )}
       </>
     );
@@ -382,7 +382,6 @@ export default function Game() {
       {(sheet === "puzzle" || sheet === "view") && puzzle && (
         <PuzzleSheet
           puzzle={puzzle}
-          totalStages={state.totalStages}
           onAnswer={sheet === "puzzle" && !puzzle.readOnly ? submitAnswer : undefined}
           onClose={() => setSheet(null)}
         />

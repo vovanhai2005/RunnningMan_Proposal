@@ -1,30 +1,46 @@
 @import "tailwindcss";
 
+/*
+ * Bảng màu "nhiệm vụ show thực tế" phiên bản ngọt ngào:
+ * vàng bơ và xanh dừa cạn lấy từ logo (làm dịu), hồng kẹo cho hành động,
+ * chữ màu tím nho thay cho đen. Mọi khối nổi đều có "gờ" bên dưới để trông phồng 3D.
+ */
 :root {
-  --ink: #14161f;
+  --ink: #2b2160; /* tím nho: chữ chính */
   --paper: #ffffff;
-  --muted: #5b6170;
-  --line: #e4e6ec;
-  --accent: #ff5b14;
-  --accent-press: #e04a08;
-  --yellow: #ffc727;
-  --ok: #12a150;
-  --bad: #e5243b;
-  --blue: #2d7ff9;
-  --night: #101320;
+  --sky: #e9edff; /* nền trang */
+  --cream: #fff7d6; /* giấy nhiệm vụ */
+  --muted: #5f5b8c;
+  --line: #dcdff7;
+  --accent: #f0468a; /* hồng kẹo: nút chính, đường đi */
+  --accent-soft: #ffb3d0;
+  --accent-press: #c22e6c; /* gờ dưới nút hồng */
+  --butter: #ffd84d;
+  --butter-deep: #e3b100;
+  --peri: #6f7cf7;
+  --peri-deep: #4a55d6;
+  --ok: #1f9e74;
+  --bad: #d92d5b;
 }
 
 @theme inline {
   --color-ink: var(--ink);
   --color-paper: var(--paper);
+  --color-sky: var(--sky);
+  --color-cream: var(--cream);
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-accent: var(--accent);
-  --color-yellow: var(--yellow);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-press: var(--accent-press);
+  --color-butter: var(--butter);
+  --color-butter-deep: var(--butter-deep);
+  --color-peri: var(--peri);
+  --color-peri-deep: var(--peri-deep);
   --color-ok: var(--ok);
   --color-bad: var(--bad);
-  --color-night: var(--night);
   --font-sans: var(--font-be-vietnam), system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-baloo), var(--font-be-vietnam), system-ui, sans-serif;
 }
 
 /* Ràng buộc Safari iOS (mục 3): không kéo để tải lại, không vuốt cuộn trang */
@@ -32,7 +48,7 @@ html,
 body {
   height: 100%;
   overscroll-behavior: none;
-  background: var(--night);
+  background: var(--sky);
   color: var(--ink);
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
@@ -54,6 +70,10 @@ button {
 input {
   font-size: 18px;
 }
+:focus-visible {
+  outline: 3px solid var(--peri);
+  outline-offset: 3px;
+}
 
 .app-screen {
   position: fixed;
@@ -63,62 +83,113 @@ input {
     env(safe-area-inset-left);
 }
 
-/* Nút chính ~56pt, nút phụ ≥ 44pt */
+/* Lớp components: tiện ích Tailwind (px-4, rounded-…) vẫn ghi đè được khi cần */
+@layer components {
+/* ---------------- Nút phồng 3D: mặt bóng + gờ dày, bấm thì lún xuống ---------------- */
 .btn {
+  --ledge: 4px;
+  --ledge-color: #cdd1f2;
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   min-height: 44px;
-  padding: 0 20px;
-  border-radius: 16px;
+  padding: 0 22px;
+  border-radius: 18px;
   font-weight: 700;
+  box-shadow: 0 var(--ledge) 0 var(--ledge-color);
   transition:
-    transform 0.08s ease,
-    background-color 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.1s ease,
     opacity 0.15s;
   user-select: none;
   touch-action: manipulation;
 }
-.btn:active {
-  transform: scale(0.97);
+.btn:active:not(:disabled) {
+  transform: translateY(calc(var(--ledge) - 1px));
+  box-shadow: 0 1px 0 var(--ledge-color);
 }
 .btn:disabled {
   opacity: 0.55;
 }
 .btn-primary {
-  min-height: 56px;
-  background: var(--accent);
+  --ledge: 6px;
+  --ledge-color: var(--accent-press);
+  min-height: 58px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #ff7cb0 0%, var(--accent) 62%);
   color: #fff;
   font-size: 19px;
-  box-shadow: 0 6px 0 var(--accent-press);
+  text-shadow: 0 1px 0 rgba(150, 20, 75, 0.35);
+  box-shadow:
+    0 var(--ledge) 0 var(--ledge-color),
+    0 16px 24px -10px rgba(194, 46, 108, 0.55),
+    inset 0 2px 0 rgba(255, 255, 255, 0.45);
 }
-.btn-primary:active {
-  box-shadow: 0 2px 0 var(--accent-press);
-  transform: translateY(4px);
+.btn-primary:active:not(:disabled) {
+  box-shadow:
+    0 1px 0 var(--ledge-color),
+    0 6px 12px -8px rgba(194, 46, 108, 0.55),
+    inset 0 2px 0 rgba(255, 255, 255, 0.45);
 }
-.btn-dark {
-  background: var(--ink);
-  color: #fff;
+/* Vệt bóng trên mặt nút */
+.btn-primary::before {
+  content: "";
+  position: absolute;
+  inset: 5px 14px auto;
+  height: 38%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+/* Nút nổi trên bản đồ */
+.btn-float {
+  --ledge-color: #cfd3f1;
+  background: #fff;
+  color: var(--ink);
+  box-shadow:
+    0 var(--ledge) 0 var(--ledge-color),
+    0 12px 22px -10px rgba(43, 33, 96, 0.4);
 }
 .btn-ghost {
-  background: #f1f2f5;
-  color: var(--ink);
+  --ledge-color: #c5cbf6;
+  background: #e3e7ff;
+  color: var(--peri-deep);
+}
+.btn-sm {
+  --ledge: 3px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 14px;
+  font-size: 15px;
 }
 
+/* ---------------- Ô nhập: lõm vào trong ---------------- */
 .field {
   width: 100%;
   min-height: 56px;
-  border-radius: 14px;
+  border-radius: 18px;
   border: 2px solid var(--line);
-  background: #fff;
-  padding: 0 16px;
+  background: #f7f8ff;
+  padding: 0 18px;
   color: var(--ink);
   outline: none;
-  transition: border-color 0.15s;
+  box-shadow: inset 0 3px 0 rgba(43, 33, 96, 0.06);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background-color 0.15s;
+}
+.field::placeholder {
+  color: #a7a5c8;
 }
 .field:focus {
-  border-color: var(--ink);
+  border-color: var(--peri);
+  background: #fff;
+  box-shadow:
+    inset 0 3px 0 rgba(43, 33, 96, 0.04),
+    0 0 0 4px rgba(111, 124, 247, 0.2);
 }
 .field.is-wrong {
   border-color: var(--bad);
@@ -145,7 +216,200 @@ input {
   }
 }
 
-/* Thẻ trượt lên từ đáy */
+/* ---------------- Khối phồng (thẻ trắng có gờ) ---------------- */
+.puff {
+  background: #fff;
+  box-shadow:
+    0 5px 0 #d6daf6,
+    0 20px 30px -20px rgba(43, 33, 96, 0.45);
+}
+
+/* Nhãn dán vàng: số nhiệm vụ */
+.sticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--butter);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 3px 0 var(--butter-deep);
+  transform: rotate(-2deg);
+}
+
+/* ---------------- Nền trang: trời xanh nhạt, mây hồng và vàng, chấm hoa giấy ---------------- */
+.sky {
+  background:
+    radial-gradient(circle at 1px 1px, rgba(111, 124, 247, 0.16) 1.2px, transparent 1.6px) 0 0 / 22px
+      22px,
+    radial-gradient(70% 45% at 0% 0%, #ffd6e8 0%, transparent 65%),
+    radial-gradient(65% 45% at 100% 100%, #fff0b3 0%, transparent 65%),
+    radial-gradient(60% 40% at 100% 18%, #dfe3ff 0%, transparent 70%),
+    var(--sky);
+  color: var(--ink);
+}
+
+/* ---------------- Chữ tiêu đề: tròn, đậm, nổi khối như phụ đề show ---------------- */
+.display-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.12; /* đủ chỗ cho dấu tiếng Việt chồng hai tầng */
+  color: var(--ink);
+  text-shadow:
+    0 1px 0 var(--accent-soft),
+    0 2px 0 var(--accent-soft);
+}
+/* Tiêu đề lớn: khối dày hơn, hồng chuyển dần + bóng mềm */
+.display-hero {
+  text-shadow:
+    0 1px 0 #ffc6dc,
+    0 2px 0 #ffb3d0,
+    0 3px 0 #ff9fc3,
+    0 4px 0 #ff8ab6,
+    0 5px 0 #f772a7,
+    0 14px 18px rgba(194, 46, 108, 0.28);
+}
+.num-display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums lining-nums;
+  line-height: 1;
+}
+
+/* ---------------- Bảng tên 3D (màn chào mừng) ---------------- */
+.tag-stage {
+  perspective: 900px;
+}
+.tag3d {
+  --rx: 0deg;
+  --ry: 0deg;
+  --gx: 30%;
+  position: relative;
+  border-radius: 26px;
+  background: linear-gradient(160deg, #ffe680 0%, var(--butter) 55%, #ffcf2e 100%);
+  color: var(--ink);
+  transform: rotateX(var(--rx)) rotateY(var(--ry)) rotateZ(-3deg);
+  transform-style: preserve-3d;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.3, 1);
+  box-shadow:
+    0 1px 0 #f2c300,
+    0 2px 0 #ecbd00,
+    0 3px 0 #e6b700,
+    0 4px 0 #e0b100,
+    0 5px 0 #d9aa00,
+    0 6px 0 #d2a300,
+    0 7px 0 #cb9c00,
+    0 26px 34px -16px rgba(43, 33, 96, 0.5);
+  touch-action: pan-y;
+}
+.tag3d.is-idle {
+  animation: tag-float 5.5s ease-in-out infinite;
+}
+@keyframes tag-float {
+  0%,
+  100% {
+    transform: rotateX(8deg) rotateY(-12deg) rotateZ(-3deg) translateY(0);
+  }
+  50% {
+    transform: rotateX(-4deg) rotateY(10deg) rotateZ(-2deg) translateY(-6px);
+  }
+}
+/* Đường may viền bảng tên */
+.tag3d-stitch {
+  position: absolute;
+  inset: 9px;
+  border-radius: 19px;
+  border: 2px dashed rgba(43, 33, 96, 0.28);
+  pointer-events: none;
+}
+/* Ánh sáng lướt theo góc nghiêng */
+.tag3d-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    120% 90% at var(--gx) 0%,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0) 55%
+  );
+  pointer-events: none;
+}
+.tag3d-name {
+  transform: translateZ(28px);
+}
+
+/* ---------------- Dấu mộc lật 3D (hoàn thành nhiệm vụ) ---------------- */
+.stamp-flip {
+  perspective: 600px;
+}
+.stamp-flip > * {
+  animation: stamp-in 0.9s cubic-bezier(0.2, 1.1, 0.35, 1) both;
+}
+@keyframes stamp-in {
+  0% {
+    transform: rotateY(-540deg) scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotateY(0) scale(1);
+  }
+}
+
+/* ---------------- Huy chương xoay 3D (về đích): xếp lớp đĩa để có độ dày thật ---------------- */
+.medal-stage {
+  perspective: 800px;
+}
+.medal {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  transform-style: preserve-3d;
+  animation: medal-sway 6s ease-in-out infinite;
+}
+@keyframes medal-sway {
+  0%,
+  100% {
+    transform: rotateY(-28deg) rotateX(6deg);
+  }
+  50% {
+    transform: rotateY(28deg) rotateX(-4deg);
+  }
+}
+.medal-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #d9a400;
+}
+.medal-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0) 38%),
+    radial-gradient(circle at 50% 50%, #ffe680 0%, var(--butter) 58%, #f5c400 100%);
+  box-shadow:
+    inset 0 0 0 9px rgba(227, 177, 0, 0.55),
+    inset 0 0 0 11px rgba(255, 255, 255, 0.5);
+  color: var(--accent);
+  transform: translateZ(8px);
+}
+.medal-back {
+  transform: translateZ(-8px) rotateY(180deg);
+}
+
+/* ---------------- Chuyển động ---------------- */
 .sheet-enter {
   animation: sheet-up 0.32s cubic-bezier(0.2, 0.9, 0.25, 1);
 }
@@ -164,56 +428,56 @@ input {
   }
 }
 .pop-in {
-  animation: pop-in 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+  animation: pop-in 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both;
 }
 @keyframes pop-in {
   from {
-    transform: scale(0.6);
+    transform: scale(0.6) translateY(12px);
     opacity: 0;
   }
 }
 
-/* Nền màn chào mừng: sọc chéo kiểu show thực tế */
-.race-stripes {
-  background:
-    radial-gradient(120% 70% at 50% 0%, rgba(255, 91, 20, 0.35), transparent 60%),
-    repeating-linear-gradient(
-      -55deg,
-      rgba(255, 199, 39, 0.07) 0 22px,
-      transparent 22px 54px
-    ),
-    var(--night);
+/* Lấp lánh trôi nhẹ trên nền */
+.sparkle {
+  position: absolute;
+  pointer-events: none;
+  animation: twinkle 4.5s ease-in-out infinite;
 }
-.race-title {
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  line-height: 1.12; /* đủ chỗ cho dấu tiếng Việt chồng hai tầng */
-  text-transform: uppercase;
-  font-style: italic;
-  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0) scale(0.85) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1) rotate(20deg);
+  }
+}
 }
 
 /* ---- Marker trên bản đồ (MapLibre đặt tâm marker đúng tọa độ) ---- */
 .rm-avatar {
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: 50px;
+  height: 50px;
 }
 .rm-avatar img {
-  width: 48px;
-  height: 48px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   border: 3px solid #fff;
   object-fit: cover;
   background: #fff;
   box-shadow:
-    0 3px 10px rgba(0, 0, 0, 0.35),
-    0 0 0 2px rgba(45, 127, 249, 0.35);
+    0 0 0 3px var(--accent),
+    0 6px 0 2px var(--accent-press),
+    0 12px 16px rgba(43, 33, 96, 0.35);
   position: relative;
 }
 .rm-avatar-dir {
   position: absolute;
-  inset: -12px;
+  inset: -13px;
   transition:
     transform 0.6s ease,
     opacity 0.3s;
@@ -228,25 +492,27 @@ input {
   height: 0;
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
-  border-bottom: 11px solid var(--blue);
+  border-bottom: 11px solid var(--accent);
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
 }
 .rm-dest {
   position: relative;
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
 }
 .rm-dest-pin {
   position: relative;
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  background: var(--ink);
-  color: var(--yellow);
+  background: linear-gradient(180deg, #ffe680 0%, var(--butter) 60%);
+  color: var(--ink);
   border: 3px solid #fff;
   display: grid;
   place-items: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 5px 0 var(--butter-deep),
+    0 12px 18px rgba(43, 33, 96, 0.35);
 }
 .rm-dest-ring {
   position: absolute;
@@ -272,7 +538,7 @@ input {
   }
 }
 /* Ghi công OpenStreetMap: đặt dưới thanh đồng hồ/tiến độ */
-.maplibregl-ctrl-top-right {
+.maplibregl-map .maplibregl-ctrl-top-right {
   top: calc(env(safe-area-inset-top) + 60px);
 }
 .maplibregl-ctrl-attrib {
@@ -291,5 +557,8 @@ input {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .medal {
+    transform: rotateY(-18deg);
   }
 }

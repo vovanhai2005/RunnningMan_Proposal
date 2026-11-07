@@ -44,7 +44,7 @@ const html = `<!doctype html>
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
   .card { border: 2px dashed #999; border-radius: 6mm; padding: 6mm; text-align: center; break-inside: avoid; }
   .top { display: flex; justify-content: space-between; font-weight: 800; }
-  .tag { background: #101320; color: #FFC727; padding: 1mm 3mm; border-radius: 2mm; letter-spacing: .1em; }
+  .tag { background: #2B2160; color: #FFD84D; padding: 1mm 3mm; border-radius: 2mm; letter-spacing: .1em; }
   .copy { color: #888; font-size: 10pt; }
   .qr svg { width: 62mm; height: 62mm; margin: 4mm auto 1mm; display: block; }
   .code { font: 800 22pt ui-monospace, monospace; letter-spacing: .12em; margin-top: 3mm; }

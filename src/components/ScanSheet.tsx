@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type QrScannerType from "qr-scanner";
-import { Kicker, Sheet, Spinner } from "./ui";
+import { Sheet, Spinner, StageTag } from "./ui";
 
 type Submit = (input: { token?: string; code?: string }) => Promise<string | null>;
 
@@ -95,16 +95,16 @@ export function ScanSheet({
 
   return (
     <Sheet onClose={onClose}>
-      <Kicker className="mt-2">Nhiệm vụ {stageOrder} · Quét mã</Kicker>
-      <h2 className="mt-1 pr-20 text-[24px] font-extrabold leading-tight">
+      <StageTag className="mt-2">Nhiệm vụ {stageOrder}</StageTag>
+      <h2 className="display-title mt-3 pr-16 text-[27px]">
         {manual ? "Nhập mã chữ" : "Hướng camera vào mã QR"}
       </h2>
 
       {!manual && (
-        <div className="relative mt-4 aspect-square w-full overflow-hidden rounded-3xl bg-black">
+        <div className="relative mt-4 aspect-square w-full overflow-hidden rounded-[28px] border-4 border-white bg-[#241C52] shadow-[0_6px_0_#d6daf6,0_20px_30px_-16px_rgba(43,33,96,0.55)]">
           <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
           {camera === "on" && (
-            <div className="pointer-events-none absolute inset-[14%] rounded-3xl border-4 border-white/90 shadow-[0_0_0_999px_rgba(0,0,0,0.35)]" />
+            <div className="pointer-events-none absolute inset-[14%] rounded-[28px] border-[4px] border-butter shadow-[0_0_0_999px_rgba(43,33,96,0.4)]" />
           )}
           {camera === "starting" && (
             <div className="absolute inset-0 grid place-items-center text-white/80">
@@ -122,7 +122,7 @@ export function ScanSheet({
             </div>
           )}
           {busy && (
-            <div className="absolute inset-0 grid place-items-center bg-black/50 text-white">
+            <div className="absolute inset-0 grid place-items-center bg-[#2B2160]/55 text-white">
               <Spinner className="h-8 w-8" />
             </div>
           )}
@@ -133,7 +133,7 @@ export function ScanSheet({
         <form onSubmit={submitCode} className="mt-4 flex flex-col gap-3">
           <p className="text-muted">Mã chữ được in ngay bên dưới mã QR.</p>
           <input
-            className="field text-center text-[22px] font-extrabold uppercase tracking-[0.2em]"
+            className="field text-center text-[22px] font-semibold uppercase tracking-[0.2em]"
             value={code}
             onChange={(e) => setCode(e.target.value)}
             autoCapitalize="characters"
@@ -151,9 +151,9 @@ export function ScanSheet({
       )}
 
       {error && (
-        <div role="alert" className="mt-4 flex gap-3 rounded-2xl bg-[#FDECEE] p-4 text-[#9B1C2C] fade-in">
+        <div role="alert" className="mt-4 flex gap-3 rounded-3xl bg-[#FFE6EF] p-4 text-[#A8204F] fade-in">
           <span className="text-xl">⚠️</span>
-          <span className="font-semibold">{error}</span>
+          <span className="font-medium">{error}</span>
         </div>
       )}
 

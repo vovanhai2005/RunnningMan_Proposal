@@ -58,11 +58,11 @@ export default function SimpleMapView({
   const a = avatarPos ? toXY(avatarPos) : null;
 
   return (
-    <div ref={ref} className="absolute inset-0 overflow-hidden bg-[#EAF0E6]">
+    <div ref={ref} className="absolute inset-0 overflow-hidden bg-sky">
       <svg width={size.w} height={size.h} className="absolute inset-0" aria-hidden="true">
         <defs>
           <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
-            <path d="M32 0H0V32" fill="none" stroke="#D5DED0" strokeWidth="1" />
+            <path d="M32 0H0V32" fill="none" stroke="#D9DEFA" strokeWidth="1" />
           </pattern>
           <clipPath id="avatar-clip">
             <circle cx="0" cy="0" r="22" />
@@ -70,7 +70,7 @@ export default function SimpleMapView({
         </defs>
         <rect width="100%" height="100%" fill="url(#grid)" />
         {traveled.length > 1 && (
-          <path d={path(traveled)} fill="none" stroke="#8A8F9C" strokeOpacity={0.55} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
+          <path d={path(traveled)} fill="none" stroke="#A9A6CF" strokeOpacity={0.55} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
         )}
         {remaining.length > 1 && (
           <>
@@ -80,7 +80,7 @@ export default function SimpleMapView({
             <path
               d={path(remaining)}
               fill="none"
-              stroke="#FF5B14"
+              stroke="#F0468A"
               strokeWidth={6}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -89,21 +89,22 @@ export default function SimpleMapView({
           </>
         )}
         {a && progress && split && progress.offRouteM > OFF_ROUTE_M && (
-          <path d={path([avatarPos!, split])} stroke="#14161F" strokeWidth={3} strokeDasharray="4 8" strokeLinecap="round" />
+          <path d={path([avatarPos!, split])} stroke="#2B2160" strokeWidth={3} strokeDasharray="4 8" strokeLinecap="round" />
         )}
         <g transform={`translate(${d.x},${d.y})`}>
           {near && (
-            <circle r="18" fill="#FF5B14" className="rm-svg-pulse" />
+            <circle r="18" fill="#F0468A" className="rm-svg-pulse" />
           )}
-          <circle r="20" fill="#14161F" stroke="#fff" strokeWidth="3" />
-          <path transform="translate(-11,-11) scale(0.92)" fill="#FFC727" d="M5 21V4h9.2l.4 2H20v10h-6.6l-.4-2H7v7H5Z" />
+          <circle r="20" cy="4" fill="#E3B100" />
+          <circle r="20" fill="#FFD84D" stroke="#fff" strokeWidth="3" />
+          <path transform="translate(-10,-10) scale(0.84)" fill="#2B2160" d="M12 1l2.8 8.2L23 12l-8.2 2.8L12 23l-2.8-8.2L1 12l8.2-2.8z" />
         </g>
         {a && (
           <g transform={`translate(${a.x},${a.y})`}>
             {heading != null && (
-              <path d="M0,-34 L7,-24 L-7,-24 Z" fill="#2D7FF9" transform={`rotate(${heading})`} />
+              <path d="M0,-34 L7,-24 L-7,-24 Z" fill="#F0468A" transform={`rotate(${heading})`} />
             )}
-            <circle r="25" fill="#fff" />
+            <circle r="25" fill="#fff" stroke="#F0468A" strokeWidth="3" />
             <image
               href={avatarUrl || "/avatar-demo.svg"}
               x="-22"

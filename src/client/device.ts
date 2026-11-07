@@ -48,7 +48,7 @@ export function requestGeolocation() {
 export async function celebrate() {
   try {
     const confetti = (await import("canvas-confetti")).default;
-    const colors = ["#FF5B14", "#FFC727", "#12A150", "#2D7FF9", "#ffffff"];
+    const colors = ["#F0468A", "#FFB3D0", "#FFD84D", "#6F7CF7", "#ffffff"];
     confetti({ particleCount: 140, spread: 80, origin: { y: 0.6 }, colors, disableForReducedMotion: true });
     setTimeout(
       () => confetti({ particleCount: 80, angle: 60, spread: 60, origin: { x: 0, y: 0.7 }, colors }),

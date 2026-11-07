@@ -1,5 +1,5 @@
 "use client";
-import { Kicker, Sheet } from "./ui";
+import { Sheet } from "./ui";
 
 /** Hướng dẫn bật lại quyền vị trí trên iPhone (Safari không hỏi lại sau khi bị từ chối). */
 export function LocationHelpSheet({ onClose }: { onClose: () => void }) {
@@ -43,8 +43,7 @@ export function LocationHelpSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <Sheet onClose={onClose} closeLabel="Để sau">
-      <Kicker className="mt-2">Vị trí đang tắt</Kicker>
-      <h2 className="mt-1 pr-24 text-[24px] font-extrabold leading-tight">
+      <h2 className="display-title mt-2 pr-24 text-[27px]">
         Bật vị trí để thấy mình trên bản đồ
       </h2>
       <p className="mt-2 text-muted">
@@ -52,23 +51,23 @@ export function LocationHelpSheet({ onClose }: { onClose: () => void }) {
       </p>
       <ol className="mt-5 flex flex-col gap-3">
         {steps.map((s, i) => (
-          <li key={i} className="rounded-2xl border border-line p-4">
+          <li key={i} className="rounded-3xl bg-[#F4F5FF] p-4">
             <div className="flex items-center gap-3">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink text-[15px] font-bold text-white">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full num-display bg-white text-[16px] text-peri-deep shadow-[0_3px_0_#cdd1f2]">
                 {i + 1}
               </span>
-              <span className="font-bold">{s.title}</span>
+              <span className="font-semibold">{s.title}</span>
             </div>
             <p className="mt-2 text-[16px]">{s.body}</p>
             {s.mock && (
-              <div className="mt-3 overflow-hidden rounded-xl bg-[#F2F2F7] text-[15px]">
+              <div className="mt-3 overflow-hidden rounded-2xl border-2 border-line text-[15px]">
                 {s.mock.map((m, j) => (
                   <div
                     key={j}
-                    className="flex items-center justify-between border-b border-[#E1E1E6] bg-white px-4 py-2.5 last:border-0"
+                    className="flex items-center justify-between border-b border-line bg-white px-4 py-2.5 last:border-0"
                   >
                     <span>{m}</span>
-                    <span className="text-[#C7C7CC]">{j === s.mock!.length - 1 ? "✓" : "›"}</span>
+                    <span className="text-peri">{j === s.mock!.length - 1 ? "✓" : "›"}</span>
                   </div>
                 ))}
               </div>

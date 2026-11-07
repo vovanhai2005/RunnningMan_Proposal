@@ -1,7 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { api, ApiError } from "@/client/api";
-import { Spinner } from "./ui";
+import { Sparkles, Spinner } from "./ui";
 
 export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [username, setUsername] = useState("");
@@ -24,24 +24,18 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
   }
 
   return (
-    <main className="app-screen race-stripes flex flex-col overflow-y-auto text-white">
-      <div className="flex flex-1 flex-col justify-center px-6 py-10">
-        <div className="mb-10">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[13px] font-bold uppercase tracking-[0.16em] text-yellow">
-            <span className="h-2 w-2 rounded-full bg-accent" /> Ban tổ chức
-          </div>
-          <h1 className="race-title text-[44px]">
-            Vào
-            <br />
-            <span className="text-yellow">cuộc đua</span>
-          </h1>
-          <p className="mt-4 text-white/75">
+    <main className="app-screen sky flex flex-col overflow-y-auto">
+      <Sparkles />
+      <div className="relative flex flex-1 flex-col justify-center px-6 py-10">
+        <div className="mb-8">
+          <h1 className="display-title display-hero text-[48px]">Vào cuộc đua</h1>
+          <p className="mt-3 max-w-[34ch] text-muted">
             Nhập tài khoản và mật khẩu Ban tổ chức đã gửi cho bạn.
           </p>
         </div>
 
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <label className="text-[15px] font-semibold text-white/80" htmlFor="username">
+        <form onSubmit={submit} className="puff flex flex-col gap-3 rounded-[28px] p-5">
+          <label className="pl-1 text-[15px] font-semibold text-ink/80" htmlFor="username">
             Tài khoản
           </label>
           <input
@@ -57,7 +51,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
             enterKeyHint="next"
             required
           />
-          <label className="mt-2 text-[15px] font-semibold text-white/80" htmlFor="password">
+          <label className="mt-2 pl-1 text-[15px] font-semibold text-ink/80" htmlFor="password">
             Mật khẩu
           </label>
           <input
@@ -71,11 +65,11 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
             required
           />
           {error && (
-            <p role="alert" className="mt-1 rounded-xl bg-bad/15 px-4 py-3 text-[15px] text-[#FFB3BC]">
+            <p role="alert" className="mt-1 rounded-2xl bg-[#FFE6EF] px-4 py-3 text-[15px] font-medium text-[#A8204F]">
               {error}
             </p>
           )}
-          <button type="submit" className="btn btn-primary mt-5 w-full" disabled={busy}>
+          <button type="submit" className="btn btn-primary mt-4 w-full" disabled={busy}>
             {busy ? <Spinner /> : "Đăng nhập"}
           </button>
         </form>

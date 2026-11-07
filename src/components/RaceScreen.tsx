@@ -6,7 +6,7 @@ import type { GameState } from "@/lib/types";
 import type { Fix, GeoStatus } from "@/hooks/useGeolocation";
 import { useRouteProgress } from "@/hooks/useRouteProgress";
 import { MapErrorBoundary } from "./map/MapErrorBoundary";
-import { Kicker } from "./ui";
+import { Pips, StageTag } from "./ui";
 
 const MapLibreMapView = dynamic(() => import("./map/MapLibreMapView"), { ssr: false });
 const SimpleMapView = dynamic(() => import("./map/SimpleMapView"), { ssr: false });
@@ -79,7 +79,7 @@ export function RaceScreen({
   };
 
   return (
-    <main className="app-screen !p-0 bg-[#EAF0E6]">
+    <main className="app-screen !p-0 bg-sky">
       {!mapFailed ? (
         <MapErrorBoundary onError={onMapFail}>
           <MapLibreMapView {...mapProps} onFail={onMapFail} />
@@ -91,7 +91,6 @@ export function RaceScreen({
       {/* Thanh trên: đồng hồ cuộc đua + tiến độ */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 px-3 pt-[calc(env(safe-area-inset-top)+8px)]">
         <RaceClock startedAt={state.player.startedAt} offsetMs={clockOffsetMs} />
-        <StageDots total={state.totalStages} current={stage.order} />
       </div>
 
       {/* Thông báo trạng thái */}
@@ -122,37 +121,38 @@ export function RaceScreen({
         <button
           onClick={() => setFollowing(true)}
           style={{ bottom: cardH + 14 }}
-          className="btn btn-dark absolute right-3 z-10 shadow-lg fade-in"
+          className="btn btn-float absolute right-3 z-10 fade-in"
         >
-          ◎ Về vị trí của tôi
+          <span className="text-peri-deep">◎</span> Về vị trí của tôi
         </button>
       )}
 
       {/* Thẻ nhiệm vụ ở đáy, trong vùng ngón cái */}
       <div
         ref={cardRef}
-        className="absolute inset-x-0 bottom-0 z-20 rounded-t-[28px] bg-paper px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[0_-8px_30px_rgba(0,0,0,0.18)]"
+        className="absolute inset-x-0 bottom-0 z-20 rounded-t-[32px] border-t-[5px] border-butter bg-paper px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[0_-14px_36px_-10px_rgba(43,33,96,0.35)]"
       >
-        <div className="flex items-center justify-between">
-          <Kicker>
-            Nhiệm vụ {stage.order}/{state.totalStages}
-          </Kicker>
-          {stage.route?.approximate && (
-            <span className="text-[12px] text-muted">Đường ước lượng</span>
-          )}
+        <div className="flex items-center justify-between gap-3">
+          <StageTag>Nhiệm vụ {stage.order}</StageTag>
+          <div className="flex items-center gap-3">
+            {stage.route?.approximate && (
+              <span className="text-[12px] text-muted">Đường ước lượng</span>
+            )}
+            <Pips total={state.totalStages} current={stage.order} />
+          </div>
         </div>
-        <h1 className="mt-1 text-[24px] font-extrabold leading-tight">{stage.title}</h1>
+        <h1 className="display-title mt-2.5 text-[27px]">{stage.title}</h1>
 
         <div className="mt-3 flex items-end gap-4">
           {remaining != null ? (
             <>
               <div>
-                <div className="text-[13px] font-semibold text-muted">Còn lại</div>
-                <div className="text-[30px] font-black leading-none tabular-nums">
+                <div className="text-[13px] font-medium text-muted">Còn lại</div>
+                <div className="num-display text-[38px] text-accent [text-shadow:0_2px_0_var(--accent-soft)]">
                   {formatDistance(remaining)}
                 </div>
               </div>
-              <div className="pb-0.5 text-[16px] font-semibold text-muted">
+              <div className="pb-0.5 text-[16px] font-medium text-muted">
                 {formatEta(progress!.etaS)}
               </div>
             </>
@@ -168,8 +168,8 @@ export function RaceScreen({
         </div>
 
         {arriving && !solving && (
-          <p className="mt-3 rounded-xl bg-[#FFF3E8] px-3 py-2 text-[15px] font-semibold text-[#A33A00] fade-in">
-            Sắp đến nơi! Tìm người của Ban tổ chức để nhận mã QR.
+          <p className="mt-3 rounded-2xl bg-[#FFF3C4] px-4 py-2.5 text-[15px] font-medium text-[#6B5000] fade-in">
+            ✨ Sắp đến nơi! Tìm người của Ban tổ chức để nhận mã QR.
           </p>
         )}
 
@@ -192,8 +192,8 @@ export function RaceScreen({
 function Banner({ children, tone }: { children: React.ReactNode; tone: "dark" | "warn" }) {
   return (
     <div
-      className={`rounded-2xl px-4 py-3 text-[15px] shadow-lg fade-in ${
-        tone === "dark" ? "bg-ink/90 text-white" : "bg-[#FFF4D6] text-[#5C4100]"
+      className={`rounded-2xl px-4 py-3 text-[15px] shadow-[0_8px_24px_-10px_rgba(43,33,96,0.45)] backdrop-blur fade-in ${
+        tone === "dark" ? "bg-[#2B2160]/90 text-white" : "bg-[#FFF3C4]/95 text-[#6B5000]"
       }`}
     >
       {children}
@@ -210,26 +210,9 @@ function RaceClock({ startedAt, offsetMs }: { startedAt: string | null; offsetMs
   if (!startedAt) return <span />;
   const elapsed = now + offsetMs - new Date(startedAt).getTime();
   return (
-    <div className="pointer-events-auto flex min-h-11 items-center gap-2 rounded-full bg-ink/90 px-4 text-[17px] font-bold text-white tabular-nums shadow-lg">
+    <div className="num-display pointer-events-auto flex min-h-11 items-center gap-2 rounded-2xl bg-white px-4 text-[19px] text-ink shadow-[0_4px_0_#cfd3f1,0_12px_22px_-10px_rgba(43,33,96,0.4)]">
       <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-accent" />
       {formatClock(elapsed)}
-    </div>
-  );
-}
-
-function StageDots({ total, current }: { total: number; current: number }) {
-  return (
-    <div className="flex min-h-11 items-center gap-1.5 rounded-full bg-ink/90 px-4 shadow-lg">
-      {Array.from({ length: total }, (_, i) => {
-        const n = i + 1;
-        const cls =
-          n < current
-            ? "bg-ok"
-            : n === current
-              ? "bg-accent ring-2 ring-accent/40 ring-offset-0 w-5"
-              : "bg-white/25";
-        return <span key={n} className={`h-2.5 w-2.5 rounded-full transition-all ${cls}`} />;
-      })}
     </div>
   );
 }
