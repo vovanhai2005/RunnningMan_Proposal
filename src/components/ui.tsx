@@ -38,33 +38,6 @@ export function StageTag({ children, className = "" }: { children: ReactNode; cl
   return <span className={`sticker ${className}`}>{children}</span>;
 }
 
-/** Tiến độ các nhiệm vụ: chấm đã xong, chấm hiện tại dài ra */
-export function Pips({ total, current }: { total: number; current: number }) {
-  return (
-    <div
-      className="flex items-center gap-1.5"
-      role="img"
-      aria-label={`Nhiệm vụ ${current} trên ${total}`}
-    >
-      {Array.from({ length: total }, (_, i) => {
-        const n = i + 1;
-        return (
-          <span
-            key={n}
-            className={`h-2.5 rounded-full transition-all ${
-              n === current
-                ? "w-6 bg-accent shadow-[0_2px_0_var(--accent-press)]"
-                : n < current
-                  ? "w-2.5 bg-peri shadow-[0_2px_0_var(--peri-deep)]"
-                  : "w-2.5 bg-line"
-            }`}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
 export function Spinner({ className = "" }: { className?: string }) {
   return (
     <span

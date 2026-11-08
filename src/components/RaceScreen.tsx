@@ -1,19 +1,18 @@
 "use client";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatClock, formatDistance, formatEta } from "@/lib/format";
+import { formatDistance, formatEta } from "@/lib/format";
 import type { GameState } from "@/lib/types";
 import type { Fix, GeoStatus } from "@/hooks/useGeolocation";
 import { useRouteProgress } from "@/hooks/useRouteProgress";
 import { MapErrorBoundary } from "./map/MapErrorBoundary";
-import { Pips, StageTag } from "./ui";
+import { StageTag } from "./ui";
 
 const MapLibreMapView = dynamic(() => import("./map/MapLibreMapView"), { ssr: false });
 const SimpleMapView = dynamic(() => import("./map/SimpleMapView"), { ssr: false });
 
 export function RaceScreen({
   state,
-  clockOffsetMs,
   fix,
   geoStatus,
   heading,
@@ -23,7 +22,6 @@ export function RaceScreen({
   onLocationHelp,
 }: {
   state: GameState;
-  clockOffsetMs: number;
   fix: Fix | null;
   geoStatus: GeoStatus;
   heading: number | null;
@@ -88,13 +86,8 @@ export function RaceScreen({
         <SimpleMapView {...mapProps} />
       )}
 
-      {/* Thanh trên: đồng hồ cuộc đua + tiến độ */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 px-3 pt-[calc(env(safe-area-inset-top)+8px)]">
-        <RaceClock startedAt={state.player.startedAt} offsetMs={clockOffsetMs} />
-      </div>
-
       {/* Thông báo trạng thái */}
-      <div className="absolute inset-x-3 top-[calc(env(safe-area-inset-top)+60px)] z-10 flex flex-col gap-2">
+      <div className="absolute inset-x-3 top-[calc(env(safe-area-inset-top)+8px)] z-10 flex flex-col gap-2">
         {!online && (
           <Banner tone="dark">
             📶 Mất sóng — bản đồ vẫn chạy, tiến trình đã được lưu. Có mạng lại là chơi tiếp.
@@ -134,12 +127,9 @@ export function RaceScreen({
       >
         <div className="flex items-center justify-between gap-3">
           <StageTag>Nhiệm vụ {stage.order}</StageTag>
-          <div className="flex items-center gap-3">
-            {stage.route?.approximate && (
-              <span className="text-[12px] text-muted">Đường ước lượng</span>
-            )}
-            <Pips total={state.totalStages} current={stage.order} />
-          </div>
+          {stage.route?.approximate && (
+            <span className="text-[12px] text-muted">Đường ước lượng</span>
+          )}
         </div>
         <h1 className="display-title mt-2.5 text-[27px]">{stage.title}</h1>
 
@@ -197,22 +187,6 @@ function Banner({ children, tone }: { children: React.ReactNode; tone: "dark" | 
       }`}
     >
       {children}
-    </div>
-  );
-}
-
-function RaceClock({ startedAt, offsetMs }: { startedAt: string | null; offsetMs: number }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  if (!startedAt) return <span />;
-  const elapsed = now + offsetMs - new Date(startedAt).getTime();
-  return (
-    <div className="num-display pointer-events-auto flex min-h-11 items-center gap-2 rounded-2xl bg-white px-4 text-[19px] text-ink shadow-[0_4px_0_#cfd3f1,0_12px_22px_-10px_rgba(43,33,96,0.4)]">
-      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-accent" />
-      {formatClock(elapsed)}
     </div>
   );
 }

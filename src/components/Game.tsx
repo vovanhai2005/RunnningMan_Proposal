@@ -40,7 +40,6 @@ export default function Game() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [phaseMessage, setPhaseMessage] = useState("");
   const [state, setState] = useState<GameState | null>(null);
-  const [clockOffset, setClockOffset] = useState(0);
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [puzzle, setPuzzle] = useState<PublicPuzzle | null>(null);
   const [success, setSuccess] = useState<{ order: number; message: string; next: GameState } | null>(
@@ -59,7 +58,6 @@ export default function Game() {
 
   const applyState = useCallback((s: GameState) => {
     setState(s);
-    setClockOffset(new Date(s.serverNow).getTime() - Date.now());
     if (s.status === "solving" && s.puzzle) {
       setPuzzle(s.puzzle);
       // Mở lại đúng câu đố khi quay lại tab
@@ -329,11 +327,7 @@ export default function Game() {
   if (state.status === "finished" && sheet !== "success") {
     return (
       <>
-        <FinishScreen
-          startedAt={state.player.startedAt}
-          finishedAt={state.player.finishedAt}
-          fresh={justFinished}
-        />
+        <FinishScreen fresh={justFinished} />
         {sheet === "view" && puzzle && (
           <PuzzleSheet puzzle={puzzle} onClose={() => setSheet(null)} />
         )}
@@ -356,7 +350,6 @@ export default function Game() {
       {state.stage && (
         <RaceScreen
           state={state}
-          clockOffsetMs={clockOffset}
           fix={fix}
           geoStatus={geoStatus}
           heading={heading}

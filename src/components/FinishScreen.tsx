@@ -1,18 +1,13 @@
 "use client";
 import { useEffect } from "react";
-import { formatClock } from "@/lib/format";
 import { celebrate } from "@/client/device";
 import { sfx } from "@/client/sound";
 import { Sparkles } from "./ui";
 
 /** Màn về đích: chỉ hiện "Bạn đã hoàn thành cuộc đua" (theo quyết định đã chốt). */
 export function FinishScreen({
-  startedAt,
-  finishedAt,
   fresh,
 }: {
-  startedAt: string | null;
-  finishedAt: string | null;
   /** Vừa về đích trong phiên này: bắn pháo giấy + nhạc */
   fresh: boolean;
 }) {
@@ -27,9 +22,6 @@ export function FinishScreen({
     };
   }, [fresh]);
 
-  const total =
-    startedAt && finishedAt ? new Date(finishedAt).getTime() - new Date(startedAt).getTime() : null;
-
   return (
     <main className="app-screen sky flex flex-col items-center justify-center px-6 text-center">
       <Sparkles />
@@ -39,14 +31,6 @@ export function FinishScreen({
       <h1 className="display-title display-hero relative mt-12 text-[40px]">
         Bạn đã hoàn thành cuộc đua
       </h1>
-      {total != null && total > 0 && (
-        <div className="relative mt-8 flex flex-col items-center">
-          <span className="text-[14px] font-medium text-muted">Thời gian của bạn</span>
-          <span className="num-display mt-1 rounded-2xl bg-white px-5 py-2 text-[28px] text-ink shadow-[0_4px_0_#cfd3f1]">
-            {formatClock(total)}
-          </span>
-        </div>
-      )}
     </main>
   );
 }
