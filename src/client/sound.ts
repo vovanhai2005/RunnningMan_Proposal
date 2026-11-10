@@ -66,6 +66,21 @@ export const sfx = {
     tone(196, 0, 0.18, "sawtooth", 0.12);
     tone(147, 0.16, 0.3, "sawtooth", 0.12);
   },
+  /** Vào bán kính 1 km: hai tiếng "píp" như radar */
+  arrive() {
+    if (!ready()) return;
+    [0, 0.32].forEach((t) => {
+      tone(1174.66, t, 0.14, "sine", 0.22);
+      tone(1567.98, t + 0.1, 0.2, "sine", 0.18);
+    });
+  },
+  /** Xích đứt, màn mới mở: tiếng "keng" kim loại rồi nốt nhạc đi lên */
+  unlock() {
+    if (!ready()) return;
+    tone(1568, 0, 0.09, "square", 0.08);
+    tone(2349, 0.05, 0.12, "square", 0.06);
+    [659.25, 880, 1174.66].forEach((f, i) => tone(f, 0.16 + i * 0.08, 0.22, "triangle", 0.22));
+  },
   /** Về đích */
   finish() {
     if (!ready()) return;

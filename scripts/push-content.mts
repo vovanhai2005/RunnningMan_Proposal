@@ -12,7 +12,7 @@
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { parseMapsUrl, validateContent, type ContentFile } from "../src/lib/content";
+import { clueImageOf, clueOf, parseMapsUrl, validateContent, type ContentFile } from "../src/lib/content";
 import { computeDriveRoute } from "../src/lib/routes-api";
 import { admin, args } from "./_common.mjs";
 
@@ -99,9 +99,9 @@ for (const s of stages) {
     lng: s.lng,
     qr_token: prev?.qr_token ?? randomBytes(18).toString("base64url"),
     manual_code: prev?.manual_code ?? newManualCode(),
-    puzzle_text: s.puzzle,
-    puzzle_image_url: s.puzzleImage ?? null,
-    answers: s.answers,
+    puzzle_text: clueOf(s), // cột cũ, giờ chứa gợi ý địa điểm
+    puzzle_image_url: clueImageOf(s),
+    answers: s.answers ?? [],
     hints: s.hints ?? [],
     success_message: s.successMessage,
     updated_at: new Date().toISOString(),

@@ -5,10 +5,8 @@
       "title": "Nơi bắt đầu của mọi thứ",
       "lat": 21.0287797,
       "lng": 105.8524247,
-      "puzzle": "NỘI DUNG THỬ. Hồ nước giữa lòng Hà Nội, gắn với truyền thuyết trả gươm cho Rùa Thần. Hồ này tên là gì?",
-      "puzzleImage": null,
-      "answers": ["Hồ Gươm", "Hồ Hoàn Kiếm", "Hoàn Kiếm"],
-      "hints": ["Tên gọi khác của hồ có chữ \"Kiếm\".", "Hồ ___ Kiếm"],
+      "clue": "NỘI DUNG THỬ. Hồ nước giữa lòng Hà Nội, gắn với truyền thuyết trả gươm cho Rùa Thần.",
+      "clueImage": null,
       "successMessage": "Chính xác! Nhiệm vụ 1 hoàn thành. Ban tổ chức đã mở khóa điểm đến tiếp theo."
     },
     {
@@ -16,10 +14,8 @@
       "title": "Ly cà phê đầu tiên",
       "lat": 21.0368,
       "lng": 105.8342,
-      "puzzle": "NỘI DUNG THỬ. Nơi Bác Hồ đọc Tuyên ngôn Độc lập năm 1945 là quảng trường nào?",
-      "puzzleImage": null,
-      "answers": ["Ba Đình", "Quảng trường Ba Đình"],
-      "hints": ["Quận có cùng tên với quảng trường.", "Ba ___"],
+      "clue": "NỘI DUNG THỬ. Quảng trường nơi Tuyên ngôn Độc lập được đọc năm 1945.",
+      "clueImage": null,
       "successMessage": "Tuyệt vời! Nhiệm vụ 2 hoàn thành."
     },
     {
@@ -27,10 +23,8 @@
       "title": "Hoàng hôn ngày ấy",
       "lat": 21.0545,
       "lng": 105.8371,
-      "puzzle": "NỘI DUNG THỬ. Hồ nước lớn nhất Hà Nội là hồ gì?",
-      "puzzleImage": null,
-      "answers": ["Hồ Tây", "Tây Hồ"],
-      "hints": ["Ngược với hướng Đông."],
+      "clue": "NỘI DUNG THỬ. Hồ nước lớn nhất Hà Nội, ngắm hoàng hôn đẹp nhất.",
+      "clueImage": null,
       "successMessage": "Giỏi quá! Chỉ còn một nhiệm vụ nữa thôi."
     },
     {
@@ -38,10 +32,8 @@
       "title": "Đích đến",
       "lat": 21.0679,
       "lng": 105.8235,
-      "puzzle": "NỘI DUNG THỬ. 7 + 7 = ?",
-      "puzzleImage": null,
-      "answers": ["14", "mười bốn"],
-      "hints": ["Hai số bảy."],
+      "clue": "NỘI DUNG THỬ. Nơi mọi con đường của cuộc đua gặp nhau.",
+      "clueImage": null,
       "successMessage": "Bạn đã vượt qua mọi thử thách!"
     }
   ]

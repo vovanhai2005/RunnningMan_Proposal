@@ -34,7 +34,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
           </p>
         </div>
 
-        <form onSubmit={submit} className="puff flex flex-col gap-3 rounded-[28px] p-5">
+        <form onSubmit={submit} className="candy-panel flex flex-col gap-3 p-5">
           <label className="pl-1 text-[15px] font-semibold text-ink/80" htmlFor="username">
             Tài khoản
           </label>

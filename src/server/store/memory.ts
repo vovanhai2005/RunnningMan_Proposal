@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ContentFile } from "@/lib/content";
+import { clueImageOf, clueOf, type ContentFile } from "@/lib/content";
 import type {
   GameStore,
   PlayerPatch,
@@ -91,9 +91,9 @@ export function stagesFromContent(content: ContentFile): StageRow[] {
     lng: s.lng!,
     qr_token: `demo-${s.order}`,
     manual_code: `RM${s.order}`,
-    puzzle_text: s.puzzle,
-    puzzle_image_url: s.puzzleImage ?? null,
-    answers: s.answers,
+    puzzle_text: clueOf(s),
+    puzzle_image_url: clueImageOf(s),
+    answers: s.answers ?? [],
     hints: s.hints ?? [],
     success_message: s.successMessage,
     route_polyline: null,

@@ -74,13 +74,45 @@ export function Sparkles() {
   );
 }
 
+/** Tách chuỗi thành từng chữ hiển thị (giữ nguyên dấu tiếng Việt đi kèm chữ cái) */
+function graphemes(text: string): string[] {
+  const t = text.normalize("NFC");
+  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+    const seg = new Intl.Segmenter("vi", { granularity: "grapheme" });
+    return Array.from(seg.segment(t), (x) => x.segment);
+  }
+  return Array.from(t);
+}
+
+/** Cỡ chữ theo độ dài tên: tên ngắn thật to, tên dài vẫn vừa màn hình điện thoại */
+function candySize(name: string) {
+  const longest = Math.max(...name.split(/\s+/).map((w) => graphemes(w).length));
+  if (longest <= 4) return 92;
+  if (longest <= 6) return 76;
+  if (longest <= 8) return 62;
+  if (longest <= 10) return 52;
+  return 42;
+}
+
 /**
- * Bảng tên người chơi 3D: tự bồng bềnh, chạm và kéo thì nghiêng theo ngón tay.
+ * Tên người chơi bằng chữ kẹo 3D: mặt chữ vàng bóng, viền nho dày, khối đùn bên dưới.
+ * Từng chữ rơi xuống nảy như thạch khi mở màn; chạm và kéo thì cả tên nghiêng theo ngón tay.
  * Kéo dọc vẫn cuộn trang được (touch-action: pan-y).
  */
-export function NameTag3D({ name }: { name: string }) {
+export function CandyName({
+  name,
+  className = "",
+  maxSize = Infinity,
+}: {
+  name: string;
+  className?: string;
+  /** Giới hạn cỡ chữ khi đặt trong khung nhỏ (vd. bảng chúc mừng) */
+  maxSize?: number;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [idle, setIdle] = useState(true);
+  const words = name.trim().split(/\s+/);
+  let i = 0;
 
   function tilt(e: PointerEvent<HTMLDivElement>) {
     const el = ref.current;
@@ -88,9 +120,8 @@ export function NameTag3D({ name }: { name: string }) {
     const r = el.getBoundingClientRect();
     const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
     const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
-    el.style.setProperty("--ry", `${(x - 0.5) * 30}deg`);
-    el.style.setProperty("--rx", `${(0.5 - y) * 24}deg`);
-    el.style.setProperty("--gx", `${x * 100}%`);
+    el.style.setProperty("--ry", `${(x - 0.5) * 34}deg`);
+    el.style.setProperty("--rx", `${(0.5 - y) * 26}deg`);
   }
   function release() {
     const el = ref.current;
@@ -101,10 +132,11 @@ export function NameTag3D({ name }: { name: string }) {
   }
 
   return (
-    <div className="tag-stage">
+    <div className={`candy-stage ${className}`}>
       <div
         ref={ref}
-        className={`tag3d px-7 py-8 ${idle ? "is-idle" : ""}`}
+        className={`candy-name ${idle ? "is-idle" : ""}`}
+        style={{ fontSize: Math.min(maxSize, candySize(name)) }}
         onPointerDown={(e) => {
           setIdle(false);
           tilt(e);
@@ -117,13 +149,46 @@ export function NameTag3D({ name }: { name: string }) {
         onPointerCancel={release}
         onPointerLeave={release}
       >
-        <span className="tag3d-stitch" />
-        <span className="tag3d-sheen" />
-        <div className="tag3d-name display-title relative break-words text-center text-[44px] [text-shadow:0_2px_0_rgba(255,255,255,0.6)]">
-          {name}
-        </div>
+        <span className="sr-only">{name}</span>
+        {words.map((w, wi) => (
+          <span key={wi} className="candy-word" aria-hidden="true">
+            {graphemes(w).map((ch, ci) => (
+              <span key={ci} className="candy-letter" style={{ ["--i" as string]: i++ }}>
+                <span className="candy-letter-back">{ch}</span>
+                <span className="candy-letter-face">{ch}</span>
+              </span>
+            ))}
+          </span>
+        ))}
       </div>
     </div>
+  );
+}
+
+/** Băng rôn ruy băng có hai đuôi gấp, như bảng tên màn chơi */
+export function Ribbon({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={`ribbon ${className}`}>
+      <RibbonTail className="ribbon-tail ribbon-tail-l" />
+      <RibbonTail className="ribbon-tail ribbon-tail-r" />
+      <span className="ribbon-band">{children}</span>
+    </div>
+  );
+}
+
+/** Đuôi ruy băng: phần đuôi xẻ chữ V và nếp gấp tối nối vào băng chính */
+function RibbonTail({ className }: { className: string }) {
+  return (
+    <svg className={className} viewBox="0 0 50 34" aria-hidden="true">
+      <path
+        d="M2 4h44v28H2l11-14z"
+        fill="#c4296a"
+        stroke="var(--grape)"
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <path d="M36 32h10V20z" fill="var(--grape)" />
+    </svg>
   );
 }
 
@@ -149,5 +214,36 @@ export function StatusScreen({
       {body && <div className="relative mt-3 max-w-[340px] text-muted">{body}</div>}
       {action && <div className="relative mt-8 w-full max-w-[340px]">{action}</div>}
     </main>
+  );
+}
+
+/** Huy chương 3D: các lớp đĩa xếp theo trục Z tạo độ dày, ruy băng hồng–xanh phía sau */
+export function Medal() {
+  const edges = [-6, -4, -2, 0, 2, 4, 6];
+  return (
+    <div className="relative">
+      {/* Ruy băng */}
+      <div aria-hidden="true" className="absolute -top-16 left-1/2 flex -translate-x-1/2 gap-1">
+        <span className="block h-24 w-9 origin-bottom -rotate-[14deg] rounded-b-md bg-accent shadow-[inset_-6px_0_0_rgba(0,0,0,0.08)]" />
+        <span className="block h-24 w-9 origin-bottom rotate-[14deg] rounded-b-md bg-peri shadow-[inset_6px_0_0_rgba(0,0,0,0.08)]" />
+      </div>
+      <div className="medal" role="img" aria-label="Huy chương về đích">
+        {edges.map((z) => (
+          <span key={z} className="medal-layer" style={{ transform: `translateZ(${z}px)` }} />
+        ))}
+        <span className="medal-face medal-back" />
+        <span className="medal-face">
+          <svg width="64" height="64" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="currentColor"
+              stroke="#fff"
+              strokeWidth="1.2"
+              strokeLinejoin="round"
+              d="M12 2.6l2.7 6 6.5.6-4.9 4.3 1.5 6.4L12 16.6l-5.8 3.3 1.5-6.4-4.9-4.3 6.5-.6z"
+            />
+          </svg>
+        </span>
+      </div>
+    </div>
   );
 }

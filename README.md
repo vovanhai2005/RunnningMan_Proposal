@@ -1,6 +1,6 @@
 # Cuộc Đua — web app "Running Man" (Phase 1)
 
-Web app cho người chơi chạy trên Safari iPhone: đăng nhập → chào mừng → bản đồ có avatar di chuyển theo vị trí thật → quét QR tại điểm đến → giải câu đố → chặng kế → về đích ("Bạn đã hoàn thành cuộc đua").
+Web app cho người chơi chạy trên Safari iPhone: đăng nhập → chào mừng → bản đồ màn chơi → mỗi màn hiện một gợi ý về địa điểm bí mật → đến trong vòng 1 km thì app báo "tìm mã QR bí mật" → quét được mã là qua màn, mở gợi ý địa điểm tiếp theo → về đích ("Bạn đã hoàn thành cuộc đua").
 
 Stack: Next.js 16 · Supabase (Auth + Postgres) · Google Maps JavaScript API + Routes API · Vercel.
 
@@ -62,20 +62,20 @@ Sửa `content/stages.json`, mỗi chặng:
 | Trường | Ý nghĩa |
 | --- | --- |
 | `order` | 1, 2, 3, 4 |
-| `title` | Tên nhiệm vụ hiện trên bản đồ |
-| `lat`, `lng` | Tọa độ điểm đến (Google Maps → nhấn giữ vào điểm → chạm vào tọa độ để sao chép) |
+| `title` | Tên địa điểm — người chơi **chỉ thấy sau khi đã quét được mã** ở đó |
+| `lat`, `lng` | Tọa độ địa điểm (Google Maps → nhấn giữ vào điểm → chạm vào tọa độ để sao chép). Dùng để báo khi vào bán kính 1 km, không hiện lên màn hình |
 | `mapsUrl` | *Thay cho lat/lng*: link Google Maps, script tự đọc tọa độ |
-| `puzzle` | Nội dung câu đố (xuống dòng bằng `\n`) |
-| `puzzleImage` | URL ảnh (tùy chọn) |
-| `answers` | Các cách viết chấp nhận được. So sánh **không dấu, không phân biệt hoa thường, bỏ dấu câu**: "Hồ Gươm" = "ho guom" = " HO GUOM! " |
-| `hints` | 1–2 gợi ý; cứ 3 lần sai mở thêm 1 gợi ý |
-| `successMessage` | Lời chúc mừng sau khi đúng |
+| `clue` | Gợi ý về địa điểm, hiện khi mở màn (xuống dòng bằng `\n`) |
+| `clueImage` | URL ảnh gợi ý (tùy chọn) |
+| `successMessage` | Lời nhắn hiện ra khi quét được mã QR bí mật ở địa điểm này |
+
+File kiểu cũ có `puzzle`/`answers`/`hints` vẫn đọc được (`puzzle` được dùng làm gợi ý), nhưng không còn bước trả lời câu đố.
 
 ```bash
 npm run content:push -- --dry     # chỉ kiểm tra file
 npm run content:push              # ghi lên Supabase + tính sẵn đường đi chặng 2→4 (3 lượt Routes API)
 ```
-Mã QR và mã chữ được tạo một lần và **giữ nguyên** khi đẩy lại, nên in QR xong vẫn sửa nội dung thoải mái. Đường chặng 1 tính lúc cô ấy bấm "Bắt đầu", từ vị trí lúc đó.
+Mã QR và mã chữ được tạo một lần và **giữ nguyên** khi đẩy lại, nên in QR xong vẫn sửa nội dung thoải mái. Giấu mã QR của mỗi chặng ở đúng địa điểm đó.
 
 ### 3.2 Tài khoản người chơi
 ```bash

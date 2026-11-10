@@ -44,10 +44,11 @@ export function LocationHelpSheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet onClose={onClose} closeLabel="Để sau">
       <h2 className="display-title mt-2 pr-24 text-[27px]">
-        Bật vị trí để thấy mình trên bản đồ
+        Bật vị trí để app báo khi bạn đến gần
       </h2>
       <p className="mt-2 text-muted">
-        Không bật cũng vẫn chơi được: bản đồ vẫn hiện điểm đến, và bạn vẫn quét mã để nhận câu đố.
+        Không bật vẫn chơi được, chỉ là app không báo được khi bạn vào trong vòng 1 km. Tìm thấy
+        mã QR bí mật thì cứ quét như thường.
       </p>
       <ol className="mt-5 flex flex-col gap-3">
         {steps.map((s, i) => (

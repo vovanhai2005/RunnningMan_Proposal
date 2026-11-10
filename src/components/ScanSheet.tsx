@@ -15,7 +15,8 @@ export function ScanSheet({
   onClose,
   initialError,
 }: {
-  stageOrder: number;
+  /** null khi đã về đích (quét lại mã cũ để xem lại) */
+  stageOrder: number | null;
   onSubmit: Submit;
   onClose: () => void;
   initialError?: string | null;
@@ -95,7 +96,7 @@ export function ScanSheet({
 
   return (
     <Sheet onClose={onClose}>
-      <StageTag className="mt-2">Nhiệm vụ {stageOrder}</StageTag>
+      {stageOrder != null && <StageTag className="mt-2">Nhiệm vụ {stageOrder}</StageTag>}
       <h2 className="display-title mt-3 pr-16 text-[27px]">
         {manual ? "Nhập mã chữ" : "Hướng camera vào mã QR"}
       </h2>
@@ -116,7 +117,7 @@ export function ScanSheet({
               <div className="text-4xl">📷</div>
               <p className="font-bold">Không mở được camera trong trang</p>
               <p className="text-[15px] text-white/75">
-                Hãy mở app <b>Camera</b> của iPhone và quét mã — trang sẽ tự mở đúng câu đố. Hoặc
+                Hãy mở app <b>Camera</b> của iPhone và quét mã — trang sẽ tự mở và ghi nhận mã. Hoặc
                 nhập mã chữ in dưới QR.
               </p>
             </div>

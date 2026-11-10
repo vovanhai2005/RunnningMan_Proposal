@@ -31,13 +31,13 @@ export function SuccessSheet({
           </div>
         </div>
         <StageTag className="mt-7">Nhiệm vụ {order} hoàn thành</StageTag>
-        <h2 className="display-title display-hero mt-3 text-[44px]">Chính xác!</h2>
+        <h2 className="display-title display-hero mt-3 text-[44px]">Tìm thấy rồi!</h2>
         <p className="mt-4 max-w-[34ch] whitespace-pre-line text-[18px] leading-relaxed text-ink/85">
           {message}
         </p>
         <p className="mt-3 text-[14px] font-medium text-muted">Ban tổ chức</p>
         <button className="btn btn-primary mt-8 w-full" onClick={onContinue}>
-          {isLast ? "Về đích" : `Đến nhiệm vụ ${order + 1}`}
+          {isLast ? "Về đích" : "Mở màn tiếp theo"}
         </button>
       </div>
     </Sheet>

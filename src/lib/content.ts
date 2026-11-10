@@ -4,19 +4,28 @@
  */
 export type StageContent = {
   order: number;
+  /** Tên địa điểm — người chơi chỉ thấy sau khi đã tìm thấy và quét mã */
   title: string;
   /** Tọa độ điểm đến. Có thể bỏ trống nếu có `mapsUrl`. */
   lat?: number;
   lng?: number;
   /** Link Google Maps của điểm (script sẽ tự đọc tọa độ) */
   mapsUrl?: string;
-  puzzle: string;
+  /** Gợi ý địa điểm hiện khi mở màn: đọc gợi ý, đoán nơi cần đến, tới đó tìm mã QR bí mật */
+  clue?: string;
+  clueImage?: string | null;
+  /** Tên cũ của `clue` / `clueImage` (file nội dung kiểu cũ vẫn đọc được) */
+  puzzle?: string;
   puzzleImage?: string | null;
-  /** Các cách viết được chấp nhận; so sánh không dấu, không phân biệt hoa thường */
-  answers: string[];
+  /** Không còn dùng (bỏ bước trả lời câu đố) — giữ để file cũ vẫn hợp lệ */
+  answers?: string[];
   hints?: string[];
+  /** Lời nhắn hiện ra khi quét được mã ở địa điểm này */
   successMessage: string;
 };
+
+export const clueOf = (s: StageContent) => s.clue ?? s.puzzle ?? "";
+export const clueImageOf = (s: StageContent) => s.clueImage ?? s.puzzleImage ?? null;
 
 export type ContentFile = { stages: StageContent[] };
 
@@ -31,8 +40,7 @@ export function validateContent(c: ContentFile): string[] {
     const tag = `Chặng ${s.order}`;
     if (!s.title) errors.push(`${tag}: thiếu title`);
     if ((s.lat == null || s.lng == null) && !s.mapsUrl) errors.push(`${tag}: thiếu lat/lng hoặc mapsUrl`);
-    if (!s.puzzle) errors.push(`${tag}: thiếu puzzle`);
-    if (!s.answers?.length) errors.push(`${tag}: thiếu answers`);
+    if (!clueOf(s)) errors.push(`${tag}: thiếu clue (gợi ý địa điểm)`);
     if (!s.successMessage) errors.push(`${tag}: thiếu successMessage`);
   }
   return [...new Set(errors)];

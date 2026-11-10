@@ -1,38 +1,41 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "@/client/api";
-import {
-  celebrate,
-  requestCompassPermission,
-  requestGeolocation,
-  requestWakeLock,
-} from "@/client/device";
+import { celebrate, requestGeolocation, requestWakeLock } from "@/client/device";
 import { sfx, unlockAudio } from "@/client/sound";
-import { useCompass } from "@/hooks/useCompass";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import type { AnswerResult, GameState, PublicPuzzle, ScanResult } from "@/lib/types";
-import { FinishScreen } from "./FinishScreen";
+import { haversine } from "@/lib/geo";
+import { NEAR_RADIUS_M, type CompletedStage, type GameState, type ScanResult } from "@/lib/types";
+import { ArrivedDialog, GameMap, type MapIntro } from "./GameMap";
 import { LocationHelpSheet } from "./LocationHelpSheet";
 import { LoginScreen } from "./LoginScreen";
-import { PuzzleSheet, type AnswerOutcome } from "./PuzzleSheet";
-import { RaceScreen } from "./RaceScreen";
+import { ReviewSheet } from "./ReviewSheet";
 import { ScanSheet } from "./ScanSheet";
 import { SuccessSheet } from "./SuccessSheet";
 import { Spinner, StatusScreen } from "./ui";
 import { WelcomeScreen } from "./WelcomeScreen";
 
 type Phase = "loading" | "login" | "ready" | "offline" | "unregistered";
-type SheetKind = null | "scan" | "puzzle" | "view" | "success" | "location";
+type SheetKind = null | "scan" | "review" | "success" | "location";
 
 const PENDING_SCAN_KEY = "rm_pending_scan";
-/** Khi xe chạy nhanh hơn ~2 m/s thì lấy hướng từ GPS, còn lại lấy từ la bàn (mục 6b) */
-const GPS_HEADING_MIN_SPEED = 2;
+/** Đã báo "đến nơi" cho chặng nào (không báo lại khi mở lại app) */
+const ARRIVED_KEY = "rm_arrived";
 
-function storage() {
+function storage(kind: "session" | "local" = "session") {
   try {
-    return window.sessionStorage;
+    return kind === "session" ? window.sessionStorage : window.localStorage;
   } catch {
     return null;
+  }
+}
+
+function loadArrived(): number[] {
+  try {
+    const v = JSON.parse(storage("local")?.getItem(ARRIVED_KEY) ?? "[]");
+    return Array.isArray(v) ? v.filter((n) => typeof n === "number") : [];
+  } catch {
+    return [];
   }
 }
 
@@ -41,7 +44,7 @@ export default function Game() {
   const [phaseMessage, setPhaseMessage] = useState("");
   const [state, setState] = useState<GameState | null>(null);
   const [sheet, setSheet] = useState<SheetKind>(null);
-  const [puzzle, setPuzzle] = useState<PublicPuzzle | null>(null);
+  const [review, setReview] = useState<CompletedStage | null>(null);
   const [success, setSuccess] = useState<{ order: number; message: string; next: GameState } | null>(
     null,
   );
@@ -49,21 +52,13 @@ export default function Game() {
   const [online, setOnline] = useState(() =>
     typeof navigator === "undefined" ? true : navigator.onLine,
   );
-  const [justFinished, setJustFinished] = useState(false);
+  const [mapIntro, setMapIntro] = useState<MapIntro | null>(null);
+  const [arrivedShown, setArrivedShown] = useState<number[]>(() =>
+    typeof window === "undefined" ? [] : loadArrived(),
+  );
   const gestureDone = useRef(false);
-  const sheetRef = useRef<SheetKind>(null);
-  useEffect(() => {
-    sheetRef.current = sheet;
-  }, [sheet]);
 
-  const applyState = useCallback((s: GameState) => {
-    setState(s);
-    if (s.status === "solving" && s.puzzle) {
-      setPuzzle(s.puzzle);
-      // Mở lại đúng câu đố khi quay lại tab
-      if (sheetRef.current === null) setSheet("puzzle");
-    }
-  }, []);
+  const applyState = useCallback((s: GameState) => setState(s), []);
 
   const handleAuthError = useCallback((e: unknown) => {
     if (e instanceof ApiError && e.status === 401) {
@@ -131,9 +126,9 @@ export default function Game() {
   }, [refresh]);
 
   const status = state?.status;
-  const racing = phase === "ready" && (status === "traveling" || status === "solving");
+  const racing = phase === "ready" && status === "traveling";
 
-  // --- Mở lại trang khi đã đang đua: cú chạm đầu tiên dùng để bật âm thanh, la bàn, giữ màn hình ---
+  // --- Mở lại trang khi đã đang đua: cú chạm đầu tiên dùng để bật âm thanh, giữ màn hình ---
   useEffect(() => {
     if (!racing) return;
     void requestWakeLock();
@@ -142,7 +137,6 @@ export default function Game() {
       if (gestureDone.current) return;
       gestureDone.current = true;
       unlockAudio();
-      void requestCompassPermission();
       void requestWakeLock();
     };
     document.addEventListener("touchend", once, { once: true });
@@ -153,40 +147,56 @@ export default function Game() {
     };
   }, [racing]);
 
-  // --- Vị trí và hướng ---
+  // --- Vị trí: theo dõi ngầm, chỉ để biết đã vào bán kính 1 km quanh điểm bí mật chưa ---
   const { fix, status: geoStatus } = useGeolocation(racing);
-  const compass = useCompass(racing);
-  const heading =
-    fix?.heading != null && (fix.speed ?? 0) > GPS_HEADING_MIN_SPEED ? fix.heading : compass;
-
-  // --- Chặng 1 chưa có đường (lúc bấm "Bắt đầu" chưa có vị trí): tính khi có vị trí ---
-  const routeRequested = useRef(false);
+  const stage = state?.stage ?? null;
+  const near = useMemo(
+    () => !!(fix && stage && haversine(fix, stage) <= NEAR_RADIUS_M),
+    [fix, stage],
+  );
+  // Báo "đến nơi" một lần cho mỗi chặng; không chen vào lúc đang chạy hiệu ứng hay đang mở bảng khác
+  const showArrived =
+    racing && near && !!stage && !arrivedShown.includes(stage.order) && sheet === null && !mapIntro;
+  const dismissArrived = useCallback(() => {
+    if (!stage) return;
+    setArrivedShown((prev) => {
+      const next = [...new Set([...prev, stage.order])];
+      storage("local")?.setItem(ARRIVED_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, [stage]);
   useEffect(() => {
-    if (!racing || !fix || routeRequested.current) return;
-    if (state?.stage?.order !== 1 || state.stage.route) return;
-    routeRequested.current = true;
-    api<GameState>("/api/route", { lat: fix.lat, lng: fix.lng })
-      .then(applyState)
-      .catch(() => {
-        routeRequested.current = false;
-      });
-  }, [racing, fix, state, applyState]);
+    if (!showArrived) return;
+    sfx.arrive();
+    try {
+      navigator.vibrate?.([120, 80, 120]);
+    } catch {
+      /* máy không rung được thì thôi */
+    }
+  }, [showArrived]);
 
-  // --- Quét mã ---
+  // --- Quét mã: đúng mã của chặng đang chơi là qua màn ---
   const submitScan = useCallback(
     async (input: { token?: string; code?: string }): Promise<string | null> => {
       try {
         const r = await api<ScanResult>("/api/scan", input);
-        if (r.ok) {
+        if (!r.ok) {
+          sfx.wrong();
+          return r.message;
+        }
+        setScanError(null);
+        if (r.kind === "review") {
           sfx.scan();
           applyState(r.state);
-          setPuzzle(r.puzzle);
-          setScanError(null);
-          setSheet(r.puzzle.readOnly ? "view" : "puzzle");
+          setReview(r.stage);
+          setSheet("review");
           return null;
         }
-        sfx.wrong();
-        return r.message;
+        sfx.success();
+        void celebrate();
+        setSuccess({ order: r.order, message: r.successMessage, next: r.state });
+        setSheet("success");
+        return null;
       } catch (e) {
         if (handleAuthError(e)) return null;
         return e instanceof ApiError ? e.message : "Có lỗi xảy ra, thử lại nhé.";
@@ -211,48 +221,16 @@ export default function Game() {
     });
   }, [racing, status, submitScan]);
 
-  // --- Trả lời ---
-  const submitAnswer = useCallback(
-    async (answer: string): Promise<AnswerOutcome> => {
-      try {
-        const r = await api<AnswerResult>("/api/answer", { answer });
-        if (!r.ok) {
-          if (r.state) applyState(r.state);
-          if (r.reason === "not_scanned") setSheet(null);
-          return { error: r.message };
-        }
-        if (r.correct) {
-          sfx.success();
-          void celebrate();
-          setSuccess({ order: puzzle?.order ?? 0, message: r.successMessage, next: r.state });
-          setSheet("success");
-          return null;
-        }
-        sfx.wrong();
-        setPuzzle(r.puzzle);
-        return {
-          error: r.newHint ? `${r.message} Ban tổ chức vừa gửi thêm một gợi ý.` : r.message,
-          newHint: r.newHint,
-        };
-      } catch (e) {
-        if (handleAuthError(e)) return null;
-        return { error: e instanceof ApiError ? e.message : "Có lỗi xảy ra, thử lại nhé." };
-      }
-    },
-    [applyState, handleAuthError, puzzle],
-  );
-
-  // --- Bắt đầu cuộc đua: cú chạm này xin quyền la bàn, bật âm thanh, giữ màn hình sáng ---
-  // Không chặn chờ GPS: tuyến chặng 1 sẽ tính sau khi có vị trí (useEffect bên dưới).
+  // --- Bắt đầu cuộc đua: cú chạm này bật âm thanh, xin quyền vị trí, giữ màn hình sáng ---
   const start = useCallback(async () => {
     gestureDone.current = true;
     unlockAudio();
-    const compassP = requestCompassPermission(); // phải gọi ngay trong cú chạm
     requestGeolocation(); // mở prompt quyền vị trí (iOS) — không chặn chờ kết quả
     void requestWakeLock();
-    void compassP;
     try {
       const s = await api<GameState>("/api/start", {});
+      // Vào bản đồ màn chơi và mở ngay gợi ý của màn 1
+      setMapIntro({ from: null, open: s.stage?.order ?? 1 });
       applyState(s);
       sfx.scan();
     } catch (e) {
@@ -260,6 +238,11 @@ export default function Game() {
       alert(e instanceof ApiError ? e.message : "Có lỗi xảy ra, thử lại nhé.");
     }
   }, [applyState, handleAuthError]);
+
+  const openScan = useCallback(() => {
+    setScanError(null);
+    setSheet("scan");
+  }, []);
 
   // ================= Hiển thị =================
 
@@ -324,17 +307,6 @@ export default function Game() {
 
   if (!state) return null;
 
-  if (state.status === "finished" && sheet !== "success") {
-    return (
-      <>
-        <FinishScreen fresh={justFinished} />
-        {sheet === "view" && puzzle && (
-          <PuzzleSheet puzzle={puzzle} onClose={() => setSheet(null)} />
-        )}
-      </>
-    );
-  }
-
   if (state.status === "not_started") {
     return (
       <WelcomeScreen
@@ -345,39 +317,44 @@ export default function Game() {
     );
   }
 
+  // Trong lúc hiện bảng "Tìm thấy rồi!" vẫn giữ bản đồ cũ; bấm tiếp mới sang màn mới (chạy hiệu ứng phá xích)
+  const finished = state.status === "finished";
   return (
     <>
-      {state.stage && (
-        <RaceScreen
-          state={state}
-          fix={fix}
-          geoStatus={geoStatus}
-          heading={heading}
-          online={online}
+      <GameMap
+        // Sang màn mới / về đích thì dựng lại bản đồ để chạy hiệu ứng phá xích
+        key={finished ? "finish" : state.stage?.order}
+        state={state}
+        near={near}
+        geoStatus={geoStatus}
+        online={online}
+        intro={mapIntro}
+        onIntroDone={() => setMapIntro(null)}
+        onScan={openScan}
+        onLocationHelp={() => setSheet("location")}
+      />
+
+      {showArrived && (
+        <ArrivedDialog
           onScan={() => {
-            setScanError(null);
-            setSheet("scan");
+            dismissArrived();
+            openScan();
           }}
-          onOpenPuzzle={() => setSheet("puzzle")}
-          onLocationHelp={() => setSheet("location")}
+          onClose={dismissArrived}
         />
       )}
 
-      {sheet === "scan" && state.stage && (
+      {sheet === "scan" && (
         <ScanSheet
-          stageOrder={state.stage.order}
+          stageOrder={state.stage?.order ?? null}
           onSubmit={submitScan}
           onClose={() => setSheet(null)}
           initialError={scanError}
         />
       )}
 
-      {(sheet === "puzzle" || sheet === "view") && puzzle && (
-        <PuzzleSheet
-          puzzle={puzzle}
-          onAnswer={sheet === "puzzle" && !puzzle.readOnly ? submitAnswer : undefined}
-          onClose={() => setSheet(null)}
-        />
+      {sheet === "review" && review && (
+        <ReviewSheet stage={review} onClose={() => setSheet(null)} />
       )}
 
       {sheet === "success" && success && (
@@ -387,11 +364,10 @@ export default function Game() {
           isLast={success.next.status === "finished"}
           onContinue={() => {
             const next = success.next;
-            if (next.status === "finished") setJustFinished(true);
+            // Về bản đồ màn chơi: xích của màn mới (hoặc đích) đứt, avatar nhảy sang, rồi mở gợi ý màn mới
+            setMapIntro({ from: success.order, open: next.stage?.order ?? null });
             setSuccess(null);
-            setPuzzle(null);
             setSheet(null);
-            sheetRef.current = null;
             applyState(next);
           }}
         />
