@@ -9,13 +9,23 @@ export type PublicClue = {
   imageUrl: string | null;
 };
 
+/** Điểm đến đã lộ: tên, địa chỉ, tọa độ để mở chỉ đường */
+export type PublicPlace = {
+  title: string;
+  address: string;
+  lat: number;
+  lng: number;
+};
+
 /**
- * Chặng đang chơi. Không có tên địa điểm: người chơi phải tự đoán từ gợi ý.
- * Tọa độ chỉ dùng để app báo khi vào bán kính NEAR_RADIUS_M, không bao giờ hiện lên màn hình.
+ * Chặng đang chơi. Chặng 1 chỉ có gợi ý (place = null): người chơi phải tự đoán.
+ * Từ chặng 2, quét được mã của chặng trước là lộ luôn điểm đến (place).
+ * lat/lng luôn có để app báo khi vào bán kính NEAR_RADIUS_M.
  */
 export type PublicStage = {
   order: number;
   clue: PublicClue;
+  place: PublicPlace | null;
   lat: number;
   lng: number;
 };
@@ -23,12 +33,8 @@ export type PublicStage = {
 /** Tóm tắt chặng đã xong, hiện trên bản đồ màn chơi. Chặng chưa mở không bao giờ có ở đây. */
 export type CompletedStage = {
   order: number;
-  /** Tên địa điểm — chỉ lộ ra sau khi đã tìm thấy */
-  title: string;
+  place: PublicPlace;
   clue: PublicClue;
-  solvedAt: string | null;
-  /** Từ lúc mở chặng (xong chặng trước / bấm "Bắt đầu") tới lúc quét được mã */
-  durationS: number | null;
   successMessage: string;
 };
 
@@ -51,7 +57,7 @@ export type GameState = {
 };
 
 export type ScanResult =
-  /** Quét đúng mã của chặng đang chơi: chặng hoàn thành, mở chặng sau (hoặc về đích) */
+  /** Quét đúng mã của chặng đang chơi: chặng hoàn thành, lộ điểm đến tiếp theo ở state.stage.place (hoặc về đích) */
   | { ok: true; kind: "completed"; order: number; successMessage: string; state: GameState }
   /** Quét lại mã của chặng đã xong: chỉ xem lại */
   | { ok: true; kind: "review"; stage: CompletedStage; state: GameState }

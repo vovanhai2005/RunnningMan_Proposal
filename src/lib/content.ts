@@ -4,14 +4,16 @@
  */
 export type StageContent = {
   order: number;
-  /** Tên địa điểm — người chơi chỉ thấy sau khi đã tìm thấy và quét mã */
+  /** Tên địa điểm. Chặng 1: chỉ lộ sau khi quét được mã ở đó. Chặng 2+: lộ ngay khi quét mã chặng trước */
   title: string;
+  /** Địa chỉ hiện cùng tên địa điểm (vd. "số 10 phố Lý Quốc Sư, Hoàn Kiếm, Hà Nội") */
+  address?: string;
   /** Tọa độ điểm đến. Có thể bỏ trống nếu có `mapsUrl`. */
   lat?: number;
   lng?: number;
   /** Link Google Maps của điểm (script sẽ tự đọc tọa độ) */
   mapsUrl?: string;
-  /** Gợi ý địa điểm hiện khi mở màn: đọc gợi ý, đoán nơi cần đến, tới đó tìm mã QR bí mật */
+  /** Gợi ý địa điểm (chỉ dùng cho chặng 1: chưa có mã QR nào dẫn tới đó) */
   clue?: string;
   clueImage?: string | null;
   /** Tên cũ của `clue` / `clueImage` (file nội dung kiểu cũ vẫn đọc được) */
@@ -40,7 +42,7 @@ export function validateContent(c: ContentFile): string[] {
     const tag = `Chặng ${s.order}`;
     if (!s.title) errors.push(`${tag}: thiếu title`);
     if ((s.lat == null || s.lng == null) && !s.mapsUrl) errors.push(`${tag}: thiếu lat/lng hoặc mapsUrl`);
-    if (!clueOf(s)) errors.push(`${tag}: thiếu clue (gợi ý địa điểm)`);
+    if (s.order === 1 && !clueOf(s)) errors.push(`${tag}: thiếu clue (gợi ý địa điểm chặng đầu)`);
     if (!s.successMessage) errors.push(`${tag}: thiếu successMessage`);
   }
   return [...new Set(errors)];

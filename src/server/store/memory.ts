@@ -40,6 +40,10 @@ export class MemoryStore implements GameStore {
     const p = this.players.find((x) => x.user_id === userId);
     return p ? { ...p } : null;
   }
+  async findPlayer(id?: string) {
+    const p = id ? this.players.find((x) => x.id === id) : this.players[0];
+    return p ? { ...p } : null;
+  }
   async listStages() {
     return this.stages.map((s) => ({ ...s }));
   }
@@ -75,6 +79,9 @@ export class MemoryStore implements GameStore {
     Object.assign(row, patch);
     return { ...row };
   }
+  async clearProgress(playerId: string) {
+    this.progress = this.progress.filter((r) => r.player_id !== playerId);
+  }
   async updateStageRoute(stageId: string, patch: StageRoutePatch) {
     const s = this.stages.find((x) => x.id === stageId);
     if (s) Object.assign(s, patch);
@@ -87,6 +94,7 @@ export function stagesFromContent(content: ContentFile): StageRow[] {
     id: `stage-${s.order}`,
     order: s.order,
     title: s.title,
+    address: s.address ?? "",
     lat: s.lat!,
     lng: s.lng!,
     qr_token: `demo-${s.order}`,

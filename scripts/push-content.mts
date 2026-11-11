@@ -95,6 +95,7 @@ for (const s of stages) {
   const row: Record<string, unknown> = {
     stage_order: s.order,
     title: s.title,
+    address: s.address ?? "",
     lat: s.lat,
     lng: s.lng,
     qr_token: prev?.qr_token ?? randomBytes(18).toString("base64url"),

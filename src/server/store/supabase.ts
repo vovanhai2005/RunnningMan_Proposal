@@ -34,6 +34,14 @@ export class SupabaseStore implements GameStore {
     return check(res) as PlayerRow | null;
   }
 
+  async findPlayer(id?: string) {
+    const q = this.db.from("players").select("*");
+    const res = id
+      ? await q.eq("id", id).maybeSingle()
+      : await q.order("created_at", { ascending: true }).limit(1).maybeSingle();
+    return check(res) as PlayerRow | null;
+  }
+
   async listStages() {
     const res = await this.db.from("stages").select("*").order("stage_order", { ascending: true });
     return (check(res) ?? []).map(
@@ -42,10 +50,15 @@ export class SupabaseStore implements GameStore {
         order: stage_order,
         lat: Number(s.lat),
         lng: Number(s.lng),
+        address: s.address ?? "",
         answers: s.answers ?? [],
         hints: s.hints ?? [],
       }),
     );
+  }
+
+  async clearProgress(playerId: string) {
+    check(await this.db.from("progress").delete().eq("player_id", playerId));
   }
 
   async listProgress(playerId: string) {

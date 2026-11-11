@@ -1,5 +1,12 @@
 import { normalizeCode } from "@/lib/normalize";
-import type { CompletedStage, GameState, GameStatus, PublicClue, ScanResult } from "@/lib/types";
+import type {
+  CompletedStage,
+  GameState,
+  GameStatus,
+  PublicClue,
+  PublicPlace,
+  ScanResult,
+} from "@/lib/types";
 import type { GameStore, PlayerRow, ProgressRow, StageRow } from "./store/types";
 
 export class GameError extends Error {
@@ -65,33 +72,24 @@ export class Game {
     return { text: stage.puzzle_text, imageUrl: stage.puzzle_image_url };
   }
 
-  private summaryOf(stage: StageRow, pr: ProgressRow | undefined, openedAt: string | null): CompletedStage {
-    const solvedAt = pr?.solved_at ?? null;
+  private placeOf(stage: StageRow): PublicPlace {
+    return { title: stage.title, address: stage.address, lat: stage.lat, lng: stage.lng };
+  }
+
+  private summaryOf(stage: StageRow): CompletedStage {
     return {
       order: stage.order,
-      title: stage.title,
+      place: this.placeOf(stage),
       clue: this.clueOf(stage),
-      solvedAt,
-      durationS:
-        solvedAt && openedAt
-          ? Math.max(0, Math.round((Date.parse(solvedAt) - Date.parse(openedAt)) / 1000))
-          : null,
       successMessage: stage.success_message,
     };
   }
 
-  /** Chặng đã xong: tên địa điểm, gợi ý, thời gian, lời nhắn — cho bảng thông tin màn chơi. */
+  /** Chặng đã xong: địa điểm, gợi ý ban đầu, lời nhắn — cho bảng thông tin màn chơi. */
   private completedOf(ctx: Ctx): CompletedStage[] {
     const { player, stages } = ctx;
     if (!player.started_at) return [];
-    let openedAt: string | null = player.started_at;
-    return stages
-      .filter((s) => s.order < player.current_stage)
-      .map((s) => {
-        const c = this.summaryOf(s, this.progressFor(ctx, s), openedAt);
-        openedAt = c.solvedAt;
-        return c;
-      });
+    return stages.filter((s) => s.order < player.current_stage).map((s) => this.summaryOf(s));
   }
 
   private toState(ctx: Ctx): GameState {
@@ -112,7 +110,14 @@ export class Game {
     };
     if (status === "not_started" || status === "finished") return base;
     const stage = this.currentStage(ctx)!;
-    base.stage = { order: stage.order, clue: this.clueOf(stage), lat: stage.lat, lng: stage.lng };
+    base.stage = {
+      order: stage.order,
+      clue: this.clueOf(stage),
+      // Chặng 1 phải tự đoán từ gợi ý; từ chặng 2, mã QR của chặng trước đã chỉ ra điểm đến
+      place: stage.order > 1 ? this.placeOf(stage) : null,
+      lat: stage.lat,
+      lng: stage.lng,
+    };
     return base;
   }
 
@@ -136,6 +141,20 @@ export class Game {
         status: "traveling",
       });
     }
+    return this.toState(ctx);
+  }
+
+  /** Nút "Chơi lại từ đầu": xóa tiến độ, về chặng 1, chưa bắt đầu (giống `npm run player:reset`). */
+  async reset(userId: string): Promise<GameState> {
+    const ctx = await this.load(userId);
+    await this.store.clearProgress(ctx.player.id);
+    ctx.progress = [];
+    ctx.player = await this.store.updatePlayer(ctx.player.id, {
+      current_stage: 1,
+      status: "traveling",
+      started_at: null,
+      finished_at: null,
+    });
     return this.toState(ctx);
   }
 

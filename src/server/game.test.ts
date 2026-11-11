@@ -33,8 +33,10 @@ describe("luồng chơi", () => {
     expect(s.status).toBe("traveling");
     expect(s.stage?.order).toBe(1);
     expect(s.stage?.clue.text).toBe(content.stages[0].clue);
+    expect(s.stage?.place).toBeNull();
     const raw = JSON.stringify(s);
     expect(raw).not.toContain(content.stages[0].title);
+    expect(raw).not.toContain(content.stages[0].address);
     expect(raw).not.toContain("demo-1");
     expect(raw).not.toContain("RM1");
     expect(raw).not.toContain(content.stages[1].clue);
@@ -70,18 +72,23 @@ describe("luồng chơi", () => {
     if (!r.ok) expect(r.reason).toBe("invalid");
   });
 
-  it("quét đúng mã là qua màn ngay: lộ gợi ý chặng sau, tên địa điểm vừa tìm thấy", async () => {
+  it("quét đúng mã là qua màn ngay và lộ tên + địa chỉ điểm đến tiếp theo", async () => {
     await ctx.game.start("u1");
-    ctx.clock.advance(15 * 60_000);
     const r = await ctx.game.scan("u1", { token: "https://race.vercel.app/q/demo-1" });
     expect(r.ok && r.kind).toBe("completed");
     if (r.ok && r.kind === "completed") {
       expect(r.order).toBe(1);
       expect(r.successMessage).toBe(content.stages[0].successMessage);
       expect(r.state.stage?.order).toBe(2);
-      expect(r.state.stage?.clue.text).toBe(content.stages[1].clue);
-      expect(r.state.completed[0]).toMatchObject({ order: 1, title: content.stages[0].title, durationS: 900 });
-      expect(JSON.stringify(r)).not.toContain(content.stages[1].title);
+      expect(r.state.stage?.place).toEqual({
+        title: content.stages[1].title,
+        address: content.stages[1].address,
+        lat: content.stages[1].lat,
+        lng: content.stages[1].lng,
+      });
+      expect(r.state.completed[0].place.title).toBe(content.stages[0].title);
+      // Chặng sau nữa vẫn bí mật
+      expect(JSON.stringify(r)).not.toContain(content.stages[2].title);
     }
   });
 
@@ -114,8 +121,23 @@ describe("luồng chơi", () => {
     expect(end.status).toBe("finished");
     expect(end.stage).toBeNull();
     expect(end.player.finishedAt).not.toBeNull();
-    expect(end.completed.map((c) => c.order)).toEqual([1, 2, 3, 4]);
-    expect(end.completed.every((c) => c.durationS === 600)).toBe(true);
+    expect(end.completed.map((c) => c.place.title)).toEqual(content.stages.map((s) => s.title));
+  });
+
+  it("chơi lại từ đầu: xóa tiến độ, về màn chào mừng, chơi lại được như mới", async () => {
+    await ctx.game.start("u1");
+    await ctx.game.scan("u1", { token: "demo-1" });
+    await ctx.game.scan("u1", { token: "demo-2" });
+    const r = await ctx.game.reset("u1");
+    expect(r.status).toBe("not_started");
+    expect(r.stage).toBeNull();
+    expect(r.completed).toEqual([]);
+    expect(r.player.startedAt).toBeNull();
+    expect(ctx.store.progress).toEqual([]);
+    const s = await ctx.game.start("u1");
+    expect(s.stage?.order).toBe(1);
+    const again = await ctx.game.scan("u1", { token: "demo-1" });
+    expect(again.ok && again.kind).toBe("completed");
   });
 
   it("mở khóa tay bằng cách sửa current_stage (như trong Table Editor)", async () => {
@@ -124,9 +146,8 @@ describe("luồng chơi", () => {
     const s = await ctx.game.getState("u1");
     expect(s.status).toBe("traveling");
     expect(s.stage?.order).toBe(3);
-    // Chặng mở khóa tay: có trong danh sách đã xong nhưng không có thời gian
     expect(s.completed.map((c) => c.order)).toEqual([1, 2]);
-    expect(s.completed[0].durationS).toBeNull();
+    expect(s.stage?.place?.title).toBe(content.stages[2].title);
     const r = await ctx.game.scan("u1", { token: "demo-3" });
     expect(r.ok && r.kind).toBe("completed");
   });

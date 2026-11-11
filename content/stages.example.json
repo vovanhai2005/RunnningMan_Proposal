@@ -3,6 +3,7 @@
     {
       "order": 1,
       "title": "Nơi bắt đầu của mọi thứ",
+      "address": "Phố Đinh Tiên Hoàng, Hoàn Kiếm, Hà Nội",
       "lat": 21.0287797,
       "lng": 105.8524247,
       "clue": "NỘI DUNG THỬ. Hồ nước giữa lòng Hà Nội, gắn với truyền thuyết trả gươm cho Rùa Thần.",
@@ -12,6 +13,7 @@
     {
       "order": 2,
       "title": "Ly cà phê đầu tiên",
+      "address": "Quảng trường Ba Đình, Ba Đình, Hà Nội",
       "lat": 21.0368,
       "lng": 105.8342,
       "clue": "NỘI DUNG THỬ. Quảng trường nơi Tuyên ngôn Độc lập được đọc năm 1945.",
@@ -21,15 +23,17 @@
     {
       "order": 3,
       "title": "Hoàng hôn ngày ấy",
+      "address": "Đường Thanh Niên, Tây Hồ, Hà Nội",
       "lat": 21.0545,
       "lng": 105.8371,
       "clue": "NỘI DUNG THỬ. Hồ nước lớn nhất Hà Nội, ngắm hoàng hôn đẹp nhất.",
       "clueImage": null,
-      "successMessage": "Giỏi quá! Chỉ còn một nhiệm vụ nữa thôi."
+      "successMessage": "Giỏi quá! Điểm đến tiếp theo đang chờ bạn."
     },
     {
       "order": 4,
       "title": "Đích đến",
+      "address": "Đường Lạc Long Quân, Tây Hồ, Hà Nội",
       "lat": 21.0679,
       "lng": 105.8235,
       "clue": "NỘI DUNG THỬ. Nơi mọi con đường của cuộc đua gặp nhau.",

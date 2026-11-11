@@ -10,11 +10,16 @@ export function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: noStore });
 }
 
-/** Bọc mọi API cần đăng nhập: 401 khi hết phiên, lỗi thân thiện thay vì mã lỗi kỹ thuật. */
+/** Bọc mọi API của người chơi: lỗi thân thiện thay vì mã lỗi kỹ thuật. */
 export async function withGame(fn: (game: Game, userId: string) => Promise<unknown>) {
   try {
     const userId = await getUserId();
-    if (!userId) return json({ error: "unauthenticated", message: "Bạn cần đăng nhập lại." }, 401);
+    if (!userId) {
+      return json(
+        { error: "no_player", message: "Cuộc đua chưa có người chơi. Hãy liên hệ Ban tổ chức." },
+        403,
+      );
+    }
     const game = new Game(getStore());
     return json(await fn(game, userId));
   } catch (e) {

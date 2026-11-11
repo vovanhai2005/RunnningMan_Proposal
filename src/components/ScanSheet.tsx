@@ -24,7 +24,10 @@ export function ScanSheet({
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerRef = useRef<QrScannerType | null>(null);
   const busyRef = useRef(false);
-  const [camera, setCamera] = useState<"starting" | "on" | "denied" | "none">("starting");
+  /** "insecure": trang mở bằng http:// (vd. chạy thử qua IP máy) — trình duyệt cấm camera */
+  const [camera, setCamera] = useState<"starting" | "on" | "denied" | "none" | "insecure">(
+    "starting",
+  );
   const [error, setError] = useState<string | null>(initialError ?? null);
   const [busy, setBusy] = useState(false);
   const [manual, setManual] = useState(false);
@@ -62,6 +65,10 @@ export function ScanSheet({
     (async () => {
       const video = videoRef.current;
       if (!video) return;
+      if (!window.isSecureContext) {
+        setCamera("insecure");
+        return;
+      }
       try {
         const QrScanner = (await import("qr-scanner")).default;
         if (disposed) return;
@@ -110,6 +117,16 @@ export function ScanSheet({
           {camera === "starting" && (
             <div className="absolute inset-0 grid place-items-center text-white/80">
               <Spinner />
+            </div>
+          )}
+          {camera === "insecure" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center text-white">
+              <div className="text-4xl">🔒</div>
+              <p className="font-bold">Camera chỉ chạy khi mở bằng link https://</p>
+              <p className="text-[15px] text-white/75">
+                Trang đang mở bằng http:// nên điện thoại không cho dùng camera. Hãy mở link https://
+                của Ban tổ chức, hoặc nhập mã chữ in dưới QR.
+              </p>
             </div>
           )}
           {(camera === "denied" || camera === "none") && (

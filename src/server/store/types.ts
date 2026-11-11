@@ -5,6 +5,8 @@ export type StageRow = {
   id: string;
   order: number;
   title: string;
+  /** Địa chỉ (cột mới; chưa chạy migration thì là chuỗi rỗng) */
+  address: string;
   lat: number;
   lng: number;
   qr_token: string;
@@ -59,10 +61,14 @@ export type PlayerPatch = Partial<Omit<PlayerRow, "id" | "user_id">>;
 
 export interface GameStore {
   getPlayerByUserId(userId: string): Promise<PlayerRow | null>;
+  /** Người chơi của cuộc đua (không có đăng nhập): theo id nếu có, không thì người tạo sớm nhất */
+  findPlayer(id?: string): Promise<PlayerRow | null>;
   /** Mọi chặng, sắp theo `order` tăng dần */
   listStages(): Promise<StageRow[]>;
   listProgress(playerId: string): Promise<ProgressRow[]>;
   updatePlayer(playerId: string, patch: PlayerPatch): Promise<PlayerRow>;
   upsertProgress(playerId: string, stageId: string, patch: ProgressPatch): Promise<ProgressRow>;
+  /** Xóa toàn bộ tiến độ các chặng của một người chơi */
+  clearProgress(playerId: string): Promise<void>;
   updateStageRoute(stageId: string, patch: StageRoutePatch): Promise<void>;
 }

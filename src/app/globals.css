@@ -1156,6 +1156,32 @@ input {
   color: var(--ink);
 }
 
+/* Nút tròn trên thanh trên (chơi lại từ đầu) */
+.lvl-icon-btn {
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 3px solid var(--grape);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--grape);
+  box-shadow: 0 4px 0 var(--grape);
+  touch-action: manipulation;
+}
+.lvl-icon-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--grape);
+}
+.lvl-reset-icon {
+  color: var(--bad);
+}
+/* Nút hành động không hoàn tác được: đỏ dâu thay cho hồng */
+.btn-danger {
+  background: linear-gradient(180deg, #ff7a8f 0%, var(--bad) 60%, #b81e48 100%);
+}
+
 /* Nhãn cảnh báo trên thanh trên (chưa bật vị trí) */
 .lvl-hud-warn {
   background: #fff3c4;
@@ -1268,6 +1294,18 @@ input {
   border: 2.5px dashed rgba(227, 177, 0, 0.55);
   border-radius: 22px;
   background: var(--cream);
+}
+/* Thẻ điểm đến: cùng dáng thẻ gợi ý, nền hồng nhạt viền liền */
+.lvl-place {
+  position: relative;
+  margin-top: 10px;
+  padding: 22px 16px 14px;
+  border: 2.5px solid #ffc6dc;
+  border-radius: 22px;
+  background: #fff6fa;
+}
+.lvl-place a {
+  text-decoration: none;
 }
 .lvl-clue-label {
   position: absolute;

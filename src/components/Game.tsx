@@ -8,14 +8,13 @@ import { haversine } from "@/lib/geo";
 import { NEAR_RADIUS_M, type CompletedStage, type GameState, type ScanResult } from "@/lib/types";
 import { ArrivedDialog, GameMap, type MapIntro } from "./GameMap";
 import { LocationHelpSheet } from "./LocationHelpSheet";
-import { LoginScreen } from "./LoginScreen";
 import { ReviewSheet } from "./ReviewSheet";
 import { ScanSheet } from "./ScanSheet";
 import { SuccessSheet } from "./SuccessSheet";
 import { Spinner, StatusScreen } from "./ui";
 import { WelcomeScreen } from "./WelcomeScreen";
 
-type Phase = "loading" | "login" | "ready" | "offline" | "unregistered";
+type Phase = "loading" | "ready" | "offline" | "unregistered";
 type SheetKind = null | "scan" | "review" | "success" | "location";
 
 const PENDING_SCAN_KEY = "rm_pending_scan";
@@ -60,11 +59,8 @@ export default function Game() {
 
   const applyState = useCallback((s: GameState) => setState(s), []);
 
+  /** Chưa tạo người chơi nào trên server (không có đăng nhập nên chỉ còn trường hợp này) */
   const handleAuthError = useCallback((e: unknown) => {
-    if (e instanceof ApiError && e.status === 401) {
-      setPhase("login");
-      return true;
-    }
     if (e instanceof ApiError && e.status === 403) {
       setPhaseMessage(e.message);
       setPhase("unregistered");
@@ -239,6 +235,24 @@ export default function Game() {
     }
   }, [applyState, handleAuthError]);
 
+  // --- Chơi lại từ đầu: xóa tiến độ trên server và những gì app nhớ trên máy ---
+  const reset = useCallback(async () => {
+    try {
+      const s = await api<GameState>("/api/reset", {});
+      storage("local")?.removeItem(ARRIVED_KEY);
+      storage()?.removeItem(PENDING_SCAN_KEY);
+      setArrivedShown([]);
+      setMapIntro(null);
+      setSuccess(null);
+      setReview(null);
+      setSheet(null);
+      applyState(s);
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      alert(e instanceof ApiError ? e.message : "Chưa xóa được, thử lại nhé.");
+    }
+  }, [applyState, handleAuthError]);
+
   const openScan = useCallback(() => {
     setScanError(null);
     setSheet("scan");
@@ -251,17 +265,6 @@ export default function Game() {
       <main className="app-screen sky grid place-items-center text-accent">
         <Spinner className="h-8 w-8" />
       </main>
-    );
-  }
-
-  if (phase === "login") {
-    return (
-      <LoginScreen
-        onLoggedIn={() => {
-          setPhase("loading");
-          void refresh();
-        }}
-      />
     );
   }
 
@@ -289,16 +292,10 @@ export default function Game() {
       <StatusScreen
         icon="🎟️"
         title="Chưa có vé tham gia"
-        body={phaseMessage || "Tài khoản này chưa được ghi danh. Hãy liên hệ Ban tổ chức nhé."}
+        body={phaseMessage || "Cuộc đua chưa có người chơi. Hãy liên hệ Ban tổ chức."}
         action={
-          <button
-            className="btn btn-ghost w-full"
-            onClick={async () => {
-              await api("/api/logout", {}).catch(() => {});
-              setPhase("login");
-            }}
-          >
-            Đăng nhập tài khoản khác
+          <button className="btn btn-ghost w-full" onClick={() => void refresh()}>
+            Thử lại
           </button>
         }
       />
@@ -332,6 +329,7 @@ export default function Game() {
         onIntroDone={() => setMapIntro(null)}
         onScan={openScan}
         onLocationHelp={() => setSheet("location")}
+        onReset={reset}
       />
 
       {showArrived && (
@@ -361,7 +359,7 @@ export default function Game() {
         <SuccessSheet
           order={success.order}
           message={success.message}
-          isLast={success.next.status === "finished"}
+          next={success.next.stage?.place ?? null}
           onContinue={() => {
             const next = success.next;
             // Về bản đồ màn chơi: xích của màn mới (hoặc đích) đứt, avatar nhảy sang, rồi mở gợi ý màn mới

@@ -1,23 +1,20 @@
 import "server-only";
-import { DEFAULT_LOGIN_EMAIL_DOMAIN, usernameToEmail as toEmail } from "@/lib/username";
 
 /**
- * Biến môi trường phía server. Chấp nhận cả tên khóa kiểu cũ (anon / service_role)
- * lẫn kiểu mới của Supabase (publishable / secret).
+ * Biến môi trường phía server. Chấp nhận cả tên khóa kiểu cũ (service_role)
+ * lẫn kiểu mới của Supabase (secret).
  */
 export const env = {
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "",
-  supabaseAnonKey:
-    process.env.SUPABASE_ANON_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    process.env.SUPABASE_PUBLISHABLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-    "",
   supabaseServiceKey:
     process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY ?? "",
   /** Khóa OpenRouteService (tùy chọn); không có thì tính đường bằng OSRM công cộng */
   orsApiKey: process.env.ORS_API_KEY ?? "",
-  loginEmailDomain: process.env.LOGIN_EMAIL_DOMAIN || DEFAULT_LOGIN_EMAIL_DOMAIN,
+  /**
+   * Không có đăng nhập: app luôn chơi bằng một người chơi. Để trống thì lấy người chơi tạo sớm
+   * nhất trong bảng `players`; có nhiều người chơi thì đặt id (cột `players.id`) của người cần chơi.
+   */
+  playerId: process.env.PLAYER_ID ?? "",
 };
 
 /**
@@ -27,12 +24,8 @@ export const env = {
  */
 export const isDemo =
   process.env.DEMO_MODE === "1" ||
-  !(env.supabaseUrl && env.supabaseAnonKey && env.supabaseServiceKey);
+  !(env.supabaseUrl && env.supabaseServiceKey);
 
 if (isDemo && process.env.VERCEL_ENV === "production") {
   console.warn("[config] ĐANG CHẠY CHẾ ĐỘ DEMO TRÊN PRODUCTION — kiểm tra biến môi trường Supabase!");
-}
-
-export function usernameToEmail(username: string): string {
-  return toEmail(username, env.loginEmailDomain);
 }

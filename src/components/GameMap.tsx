@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { formatClock, formatDuration } from "@/lib/format";
-import type { CompletedStage, GameState, PublicClue } from "@/lib/types";
+import type { CompletedStage, GameState, PublicClue, PublicStage } from "@/lib/types";
 import type { GeoStatus } from "@/hooks/useGeolocation";
 import { celebrate } from "@/client/device";
 import { sfx } from "@/client/sound";
-import { CandyName, Medal, Ribbon } from "./ui";
+import { PlaceCard } from "./PlaceCard";
+import { CandyName, Medal, Ribbon, Spinner } from "./ui";
 
 /** Khi quay về bản đồ màn chơi: avatar nhảy từ màn `from` sang màn hiện tại, rồi mở bảng của màn `open` */
 export type MapIntro = { from: number | null; open: number | null };
@@ -62,6 +62,7 @@ export function GameMap({
   onIntroDone,
   onScan,
   onLocationHelp,
+  onReset,
 }: {
   state: GameState;
   /** Đang ở trong bán kính 1 km quanh điểm bí mật của màn hiện tại */
@@ -72,6 +73,8 @@ export function GameMap({
   onIntroDone: () => void;
   onScan: () => void;
   onLocationHelp: () => void;
+  /** Xóa toàn bộ tiến độ, quay về màn chào mừng */
+  onReset: () => Promise<void>;
 }) {
   const total = state.totalStages;
   const finishedAll = state.status === "finished";
@@ -84,6 +87,7 @@ export function GameMap({
 
   const moving = intro?.from != null && intro.from !== current;
   const [selected, setSelected] = useState<Selected | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
   // Vị trí avatar (chỉ số điểm); khác `current` trong lúc chạy hiệu ứng chuyển màn
   const [avatarAt, setAvatarAt] = useState(() => intro?.from ?? current);
   /** Điểm đang phá xích (màn mới hoặc đích) và màn bí mật mới đang trồi lên khỏi mây */
@@ -294,6 +298,16 @@ export function GameMap({
           </b>
         </div>
         <div className="flex flex-col items-end gap-2">
+          <button
+            className="lvl-icon-btn"
+            aria-label="Chơi lại từ đầu"
+            onClick={() => {
+              setSelected(null);
+              setConfirmReset(true);
+            }}
+          >
+            <RestartIcon />
+          </button>
           {!online && <div className="lvl-hud lvl-hud-dark">📶 Mất sóng</div>}
           {!finishedAll && NO_LOCATION.includes(geoStatus) && (
             <button className="lvl-hud lvl-hud-warn" onClick={onLocationHelp}>
@@ -311,6 +325,10 @@ export function GameMap({
             Quét mã QR
           </button>
         </div>
+      )}
+
+      {confirmReset && (
+        <ResetDialog onConfirm={onReset} onClose={() => setConfirmReset(false)} />
       )}
 
       {selected && (
@@ -397,7 +415,7 @@ function LevelPopup({
   } else if (isCurrent) {
     body = (
       <CurrentInfo
-        clue={state.stage!.clue}
+        stage={state.stage!}
         near={near}
         geoStatus={geoStatus}
         onScan={onScan}
@@ -477,14 +495,55 @@ export function ArrivedDialog({ onScan, onClose }: { onScan: () => void; onClose
         </div>
         <h2 className="display-title mt-5 text-[24px]">Mã QR bí mật ở quanh đây</h2>
         <p className="mt-2 max-w-[30ch] text-[16px] leading-snug text-muted">
-          Bạn đang ở trong vòng 1 km quanh địa điểm trong gợi ý. Tìm mã QR bí mật rồi quét để nhận
-          gợi ý địa điểm tiếp theo.
+          Bạn đang ở trong vòng 1 km quanh điểm đến. Tìm mã QR bí mật rồi quét để biết điểm đến
+          tiếp theo.
         </p>
         <button className="btn btn-primary mt-6 w-full" onClick={onScan} autoFocus>
           <QrIcon /> Quét mã QR
         </button>
         <button className="btn btn-ghost mt-3 w-full" onClick={onClose}>
           Để sau
+        </button>
+      </div>
+    </CandyDialog>
+  );
+}
+
+/** Xác nhận trước khi xóa tiến độ — không hoàn tác được */
+function ResetDialog({
+  onConfirm,
+  onClose,
+}: {
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <CandyDialog heading="Chơi lại" onClose={busy ? () => {} : onClose} z="z-50">
+      <div className="flex flex-col items-center text-center">
+        <div className="lvl-popup-lock lvl-reset-icon" aria-hidden="true">
+          <RestartIcon size={40} />
+        </div>
+        <h2 className="display-title mt-4 text-[24px]">Chơi lại từ đầu?</h2>
+        <p className="mt-2 max-w-[30ch] text-[16px] leading-snug text-muted">
+          Mọi màn đã qua sẽ bị xóa và cuộc đua quay về màn chào mừng. Không hoàn tác được.
+        </p>
+        <button
+          className="btn btn-primary btn-danger mt-6 w-full"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await onConfirm();
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? <Spinner /> : "Xóa và chơi lại"}
+        </button>
+        <button className="btn btn-ghost mt-3 w-full" onClick={onClose} disabled={busy} autoFocus>
+          Hủy
         </button>
       </div>
     </CandyDialog>
@@ -511,10 +570,10 @@ function FinishInfo({ name, onClose }: { name: string; onClose: () => void }) {
 }
 
 /** Thẻ giấy ghi gợi ý địa điểm */
-function ClueCard({ clue }: { clue: PublicClue }) {
+function ClueCard({ clue, label = "Gợi ý địa điểm" }: { clue: PublicClue; label?: string }) {
   return (
     <figure className="lvl-clue w-full text-left">
-      <figcaption className="lvl-clue-label">Gợi ý địa điểm</figcaption>
+      <figcaption className="lvl-clue-label">{label}</figcaption>
       <p className="whitespace-pre-line text-[17px] leading-relaxed text-ink">{clue.text}</p>
       {clue.imageUrl && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -524,34 +583,26 @@ function ClueCard({ clue }: { clue: PublicClue }) {
   );
 }
 
+/** Màn đã xong: địa điểm (mở lại trên Google Maps), gợi ý ban đầu nếu có, lời nhắn của Ban tổ chức */
 function DoneInfo({ c, onClose }: { c: CompletedStage; onClose: () => void }) {
   return (
     <div className="flex flex-col items-center text-center">
       <Stars n={STARS_PER_LEVEL} className="lvl-popup-stars" big />
       <p className="mt-1 text-[14px] font-semibold text-muted">Đã tìm thấy</p>
-      <h2 className="display-title mt-1 text-[24px]">{c.title}</h2>
 
-      <div className="mt-4 w-full">
-        <ClueCard clue={c.clue} />
+      <div className="mt-5 w-full">
+        <PlaceCard place={c.place} label="Địa điểm" mode="view" />
       </div>
 
-      <dl className="lvl-facts mt-3 w-full text-left">
-        {c.durationS != null && (
-          <div>
-            <dt>Thời gian tìm</dt>
-            <dd>{formatDuration(c.durationS)}</dd>
-          </div>
-        )}
-        {c.solvedAt && (
-          <div>
-            <dt>Quét mã lúc</dt>
-            <dd>{formatClock(c.solvedAt)}</dd>
-          </div>
-        )}
-      </dl>
+      {/* Chặng 1 bắt đầu bằng một câu đố: giữ lại để xem cô ấy đã đoán ra từ đâu */}
+      {c.order === 1 && c.clue.text && (
+        <div className="mt-5 w-full">
+          <ClueCard clue={c.clue} label="Gợi ý ban đầu" />
+        </div>
+      )}
 
       {c.successMessage && (
-        <figure className="mt-3 w-full rounded-3xl bg-[#fff1f7] px-4 py-3 text-left">
+        <figure className="mt-4 w-full rounded-3xl bg-[#fff1f7] px-4 py-3 text-left">
           <blockquote className="whitespace-pre-line text-[16px] leading-relaxed text-ink/90">
             {c.successMessage}
           </blockquote>
@@ -566,16 +617,19 @@ function DoneInfo({ c, onClose }: { c: CompletedStage; onClose: () => void }) {
   );
 }
 
-/** Màn đang chơi: gợi ý địa điểm + trạng thái gần/xa (không bao giờ nói khoảng cách hay hướng) */
+/**
+ * Màn đang chơi. Màn 1: gợi ý để tự đoán (không nói khoảng cách hay hướng).
+ * Màn 2+: điểm đến đã lộ sau khi quét mã màn trước, có nút chỉ đường.
+ */
 function CurrentInfo({
-  clue,
+  stage,
   near,
   geoStatus,
   onScan,
   onClose,
   onLocationHelp,
 }: {
-  clue: PublicClue;
+  stage: PublicStage;
   near: boolean;
   geoStatus: GeoStatus;
   onScan: () => void;
@@ -584,7 +638,11 @@ function CurrentInfo({
 }) {
   return (
     <div className="flex flex-col items-center text-center">
-      <ClueCard clue={clue} />
+      {stage.place ? (
+        <PlaceCard place={stage.place} label="Điểm đến" />
+      ) : (
+        <ClueCard clue={stage.clue} />
+      )}
 
       {near ? (
         <>
@@ -605,12 +663,14 @@ function CurrentInfo({
                   Xem cách bật
                 </button>
               </>
+            ) : stage.place ? (
+              "Khi bạn đến trong vòng 1 km, app sẽ báo để bạn tìm mã QR bí mật."
             ) : (
               "Đoán xem đó là đâu rồi đi tới đó. Khi bạn đến trong vòng 1 km, app sẽ báo."
             )}
           </p>
           <button className="btn btn-primary mt-5 w-full" onClick={onClose} autoFocus>
-            Đi tìm thôi
+            {stage.place ? "Lên đường thôi" : "Đi tìm thôi"}
           </button>
           <button
             className="mt-3 min-h-11 text-[15px] font-semibold text-peri-deep"
@@ -677,6 +737,26 @@ function Stars({
         </svg>
       ))}
     </span>
+  );
+}
+
+function RestartIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4.5 12a7.5 7.5 0 1 0 2.4-5.5"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M4 3.8v4.6h4.6"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

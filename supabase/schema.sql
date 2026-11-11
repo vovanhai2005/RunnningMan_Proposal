@@ -26,6 +26,9 @@ create table if not exists public.stages (
   updated_at         timestamptz not null default now()
 );
 
+-- Địa chỉ điểm đến: lộ ra cho người chơi khi quét được mã của chặng trước
+alter table public.stages add column if not exists address text not null default '';
+
 -- Người chơi: mỗi tài khoản Supabase Auth một dòng.
 create table if not exists public.players (
   id             uuid primary key default gen_random_uuid(),
