@@ -5,36 +5,36 @@ import { celebrate, requestGeolocation, requestWakeLock } from "@/client/device"
 import { sfx, unlockAudio } from "@/client/sound";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { haversine } from "@/lib/geo";
-import { NEAR_RADIUS_M, type CompletedStage, type GameState, type ScanResult } from "@/lib/types";
+import {
+  NEAR_RADIUS_M,
+  type AnswerResult,
+  type ArriveResult,
+  type CompletedStage,
+  type GameState,
+  type PublicStage,
+  type ScanResult,
+} from "@/lib/types";
 import { ArrivedDialog, GameMap, type MapIntro } from "./GameMap";
 import { LocationHelpSheet } from "./LocationHelpSheet";
 import { ReviewSheet } from "./ReviewSheet";
 import { ScanSheet } from "./ScanSheet";
+import { SolvedSheet } from "./SolvedSheet";
 import { SuccessSheet } from "./SuccessSheet";
 import { Spinner, StatusScreen } from "./ui";
 import { WelcomeScreen } from "./WelcomeScreen";
 
 type Phase = "loading" | "ready" | "offline" | "unregistered";
-type SheetKind = null | "scan" | "review" | "success" | "location";
+type SheetKind = null | "scan" | "review" | "success" | "solved" | "arrived" | "location";
 
 const PENDING_SCAN_KEY = "rm_pending_scan";
-/** Đã báo "đến nơi" cho chặng nào (không báo lại khi mở lại app) */
-const ARRIVED_KEY = "rm_arrived";
+/** Báo server "đã tới nơi" thất bại (mất sóng, GPS lệch) thì chờ chừng này rồi thử lại */
+const ARRIVE_RETRY_MS = 15_000;
 
 function storage(kind: "session" | "local" = "session") {
   try {
     return kind === "session" ? window.sessionStorage : window.localStorage;
   } catch {
     return null;
-  }
-}
-
-function loadArrived(): number[] {
-  try {
-    const v = JSON.parse(storage("local")?.getItem(ARRIVED_KEY) ?? "[]");
-    return Array.isArray(v) ? v.filter((n) => typeof n === "number") : [];
-  } catch {
-    return [];
   }
 }
 
@@ -47,14 +47,15 @@ export default function Game() {
   const [success, setSuccess] = useState<{ order: number; message: string; next: GameState } | null>(
     null,
   );
+  /** Màn vừa đoán đúng địa điểm: hiện điểm đến vừa lộ */
+  const [solved, setSolved] = useState<PublicStage | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [online, setOnline] = useState(() =>
     typeof navigator === "undefined" ? true : navigator.onLine,
   );
   const [mapIntro, setMapIntro] = useState<MapIntro | null>(null);
-  const [arrivedShown, setArrivedShown] = useState<number[]>(() =>
-    typeof window === "undefined" ? [] : loadArrived(),
-  );
+  /** Lần gần nhất báo server "đã tới nơi" (để không gọi dồn dập theo từng lần GPS cập nhật) */
+  const arriveTry = useRef<{ order: number; at: number } | null>(null);
   const gestureDone = useRef(false);
 
   const applyState = useCallback((s: GameState) => setState(s), []);
@@ -143,33 +144,62 @@ export default function Game() {
     };
   }, [racing]);
 
-  // --- Vị trí: theo dõi ngầm, chỉ để biết đã vào bán kính 1 km quanh điểm bí mật chưa ---
+  // --- Vị trí: theo dõi ngầm, chỉ để biết đã vào bán kính 1 km quanh điểm đến chưa ---
   const { fix, status: geoStatus } = useGeolocation(racing);
   const stage = state?.stage ?? null;
   const near = useMemo(
-    () => !!(fix && stage && haversine(fix, stage) <= NEAR_RADIUS_M),
+    () => !!(fix && stage?.target && haversine(fix, stage.target) <= NEAR_RADIUS_M),
     [fix, stage],
   );
-  // Báo "đến nơi" một lần cho mỗi chặng; không chen vào lúc đang chạy hiệu ứng hay đang mở bảng khác
-  const showArrived =
-    racing && near && !!stage && !arrivedShown.includes(stage.order) && sheet === null && !mapIntro;
-  const dismissArrived = useCallback(() => {
-    if (!stage) return;
-    setArrivedShown((prev) => {
-      const next = [...new Set([...prev, stage.order])];
-      storage("local")?.setItem(ARRIVED_KEY, JSON.stringify(next));
-      return next;
-    });
-  }, [stage]);
+
+  // Vào vòng 1 km: báo server (server tự đo lại) để lộ gợi ý chỗ giấu mã QR.
+  // Không chen vào lúc đang chạy hiệu ứng hay đang mở bảng khác.
+  const canArrive = racing && near && stage?.phase === "travel" && sheet === null && !mapIntro;
   useEffect(() => {
-    if (!showArrived) return;
-    sfx.arrive();
-    try {
-      navigator.vibrate?.([120, 80, 120]);
-    } catch {
-      /* máy không rung được thì thôi */
-    }
-  }, [showArrived]);
+    if (!canArrive || !fix || !stage) return;
+    const last = arriveTry.current;
+    if (last && last.order === stage.order && Date.now() - last.at < ARRIVE_RETRY_MS) return;
+    arriveTry.current = { order: stage.order, at: Date.now() };
+    void api<ArriveResult>("/api/arrive", { lat: fix.lat, lng: fix.lng })
+      .then((r) => {
+        if (!r.ok) return;
+        applyState(r.state);
+        sfx.arrive();
+        try {
+          navigator.vibrate?.([120, 80, 120]);
+        } catch {
+          /* máy không rung được thì thôi */
+        }
+        setSheet("arrived");
+      })
+      .catch((e) => {
+        handleAuthError(e);
+      });
+  }, [canArrive, fix, stage, applyState, handleAuthError]);
+
+  // --- Gõ tên địa điểm: đúng thì lộ điểm đến; trả về lời báo sai hoặc null ---
+  const submitAnswer = useCallback(
+    async (answer: string): Promise<string | null> => {
+      try {
+        const r = await api<AnswerResult>("/api/answer", { answer });
+        if (!r.ok) return r.message;
+        if (!r.correct) {
+          sfx.wrong();
+          return r.message;
+        }
+        sfx.success();
+        void celebrate();
+        applyState(r.state);
+        setSolved(r.state.stage);
+        setSheet("solved");
+        return null;
+      } catch (e) {
+        if (handleAuthError(e)) return null;
+        return e instanceof ApiError ? e.message : "Có lỗi xảy ra, thử lại nhé.";
+      }
+    },
+    [applyState, handleAuthError],
+  );
 
   // --- Quét mã: đúng mã của chặng đang chơi là qua màn ---
   const submitScan = useCallback(
@@ -239,11 +269,11 @@ export default function Game() {
   const reset = useCallback(async () => {
     try {
       const s = await api<GameState>("/api/reset", {});
-      storage("local")?.removeItem(ARRIVED_KEY);
       storage()?.removeItem(PENDING_SCAN_KEY);
-      setArrivedShown([]);
+      arriveTry.current = null;
       setMapIntro(null);
       setSuccess(null);
+      setSolved(null);
       setReview(null);
       setSheet(null);
       applyState(s);
@@ -328,17 +358,23 @@ export default function Game() {
         intro={mapIntro}
         onIntroDone={() => setMapIntro(null)}
         onScan={openScan}
+        onAnswer={submitAnswer}
         onLocationHelp={() => setSheet("location")}
         onReset={reset}
       />
 
-      {showArrived && (
-        <ArrivedDialog
-          onScan={() => {
-            dismissArrived();
-            openScan();
+      {sheet === "arrived" && stage?.phase === "search" && (
+        <ArrivedDialog hint={stage.qrHint ?? ""} onScan={openScan} onClose={() => setSheet(null)} />
+      )}
+
+      {sheet === "solved" && solved?.place && (
+        <SolvedSheet
+          order={solved.order}
+          place={solved.place}
+          onClose={() => {
+            setSolved(null);
+            setSheet(null);
           }}
-          onClose={dismissArrived}
         />
       )}
 
@@ -359,7 +395,7 @@ export default function Game() {
         <SuccessSheet
           order={success.order}
           message={success.message}
-          next={success.next.stage?.place ?? null}
+          next={success.next.stage}
           onContinue={() => {
             const next = success.next;
             // Về bản đồ màn chơi: xích của màn mới (hoặc đích) đứt, avatar nhảy sang, rồi mở gợi ý màn mới

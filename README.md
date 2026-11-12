@@ -1,6 +1,6 @@
 # Cuộc Đua — web app "Running Man" (Phase 1)
 
-Web app cho người chơi chạy trên Safari iPhone (không cần đăng nhập): chào mừng → bản đồ màn chơi → mỗi màn hiện một gợi ý về địa điểm bí mật → đến trong vòng 1 km thì app báo "tìm mã QR bí mật" → quét được mã là qua màn, mở gợi ý địa điểm tiếp theo → về đích ("Bạn đã hoàn thành cuộc đua").
+Web app cho người chơi chạy trên Safari iPhone (không cần đăng nhập): chào mừng → bản đồ màn chơi → mỗi màn hiện một gợi ý về địa điểm bí mật → gõ đúng tên địa điểm thì lộ điểm đến → đến trong vòng 1 km thì hiện gợi ý chỗ giấu mã QR → quét được mã là qua màn, mở gợi ý địa điểm tiếp theo → về đích ("Bạn đã hoàn thành cuộc đua").
 
 Stack: Next.js 16 · Supabase (Auth + Postgres) · Google Maps JavaScript API + Routes API · Vercel.
 
@@ -59,15 +59,17 @@ Sửa `content/stages.json`, mỗi chặng:
 | Trường | Ý nghĩa |
 | --- | --- |
 | `order` | 1, 2, 3, 4 |
-| `title` | Tên địa điểm. Chặng 1: chỉ lộ sau khi quét được mã ở đó. Chặng 2+: lộ ngay khi quét được mã của chặng trước |
+| `title` | Tên địa điểm: lộ khi người chơi gõ đúng một trong `answers` |
 | `address` | Địa chỉ, hiện cùng tên địa điểm và nút chỉ đường Google Maps |
-| `lat`, `lng` | Tọa độ địa điểm (Google Maps → nhấn giữ vào điểm → chạm vào tọa độ để sao chép). Dùng để báo khi vào bán kính 1 km, không hiện lên màn hình |
+| `lat`, `lng` | Tọa độ địa điểm (Google Maps → nhấn giữ vào điểm → chạm vào tọa độ để sao chép). Dùng để biết khi vào bán kính 1 km (server đo lại trước khi lộ gợi ý mã QR) |
 | `mapsUrl` | *Thay cho lat/lng*: link Google Maps, script tự đọc tọa độ |
-| `clue` | Gợi ý về địa điểm của **chặng 1** (xuống dòng bằng `\n`). Các chặng sau không cần: quét mã là lộ điểm đến |
+| `clue` | Gợi ý về địa điểm, hiện ngay khi mở màn (xuống dòng bằng `\n`) |
 | `clueImage` | URL ảnh gợi ý (tùy chọn) |
+| `answers` | Các cách viết tên địa điểm được chấp nhận. Không phân biệt hoa thường, dấu, dấu câu; câu trả lời chứa trọn một cách viết cũng tính là đúng ("tòa T8 Times City" chứa "T8"). Bỏ trống thì màn đó không có ô nhập: chỉ hiện gợi ý (không lộ tên địa điểm), vào vòng 1 km là tới bước tìm mã QR |
+| `qrHint` | Gợi ý chỗ giấu mã QR, hiện khi người chơi vào trong vòng 1 km quanh điểm đến (lưu ở cột `hints`) |
 | `successMessage` | Lời nhắn hiện ra khi quét được mã QR bí mật ở địa điểm này |
 
-File kiểu cũ có `puzzle`/`answers`/`hints` vẫn đọc được (`puzzle` được dùng làm gợi ý), nhưng không còn bước trả lời câu đố.
+File kiểu cũ có `puzzle` vẫn đọc được (`puzzle` được dùng làm gợi ý). Quét đúng mã QR ở bước nào cũng qua màn (dự phòng khi GPS không chạy).
 
 ```bash
 npm run content:push -- --dry     # chỉ kiểm tra file

@@ -1,5 +1,13 @@
 "use client";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type SubmitEvent,
+  type ReactNode,
+} from "react";
 import type { CompletedStage, GameState, PublicClue, PublicStage } from "@/lib/types";
 import type { GeoStatus } from "@/hooks/useGeolocation";
 import { celebrate } from "@/client/device";
@@ -61,17 +69,20 @@ export function GameMap({
   intro,
   onIntroDone,
   onScan,
+  onAnswer,
   onLocationHelp,
   onReset,
 }: {
   state: GameState;
-  /** Đang ở trong bán kính 1 km quanh điểm bí mật của màn hiện tại */
+  /** Đang ở trong bán kính 1 km quanh điểm đến của màn hiện tại */
   near: boolean;
   geoStatus: GeoStatus;
   online: boolean;
   intro: MapIntro | null;
   onIntroDone: () => void;
   onScan: () => void;
+  /** Gửi tên địa điểm đoán được; trả về lời báo sai, hoặc null khi đúng */
+  onAnswer: (answer: string) => Promise<string | null>;
   onLocationHelp: () => void;
   /** Xóa toàn bộ tiến độ, quay về màn chào mừng */
   onReset: () => Promise<void>;
@@ -84,6 +95,8 @@ export function GameMap({
   const { H, pts } = useMemo(() => layout(last, finishedAll), [last, finishedAll]);
   const done = useMemo(() => new Map(state.completed.map((c) => [c.order, c])), [state.completed]);
   const stars = state.completed.length * STARS_PER_LEVEL;
+  /** Đã tới nơi, đang tìm mã QR: nút quét nảy lên */
+  const hot = near || state.stage?.phase === "search";
 
   const moving = intro?.from != null && intro.from !== current;
   const [selected, setSelected] = useState<Selected | null>(null);
@@ -221,11 +234,11 @@ export function GameMap({
               const breaking = unlocking === order;
               const label = c
                 ? `Nhiệm vụ ${order}, đã hoàn thành, ${STARS_PER_LEVEL} sao`
-                : `Nhiệm vụ ${order}, đang chơi${near ? ", bạn đã ở gần" : ""}`;
+                : `Nhiệm vụ ${order}, đang chơi${hot ? ", bạn đã đến nơi" : ""}`;
               return (
                 <button
                   key={order}
-                  className={`lvl-node ${c ? "is-done" : "is-current"} ${breaking ? "is-unlocking" : ""} ${!c && near ? "is-near" : ""}`}
+                  className={`lvl-node ${c ? "is-done" : "is-current"} ${breaking ? "is-unlocking" : ""} ${!c && hot ? "is-near" : ""}`}
                   style={pct(pts[order])}
                   aria-label={label}
                   onClick={() => setSelected({ kind: "stage", order })}
@@ -320,7 +333,7 @@ export function GameMap({
       {/* Nút quét mã luôn trong tầm ngón cái; nảy lên khi đã ở gần điểm bí mật */}
       {!finishedAll && (
         <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+18px)] z-10 flex justify-center">
-          <button className={`lvl-scan ${near ? "is-near" : ""}`} onClick={onScan}>
+          <button className={`lvl-scan ${hot ? "is-near" : ""}`} onClick={onScan}>
             <QrIcon />
             Quét mã QR
           </button>
@@ -344,6 +357,11 @@ export function GameMap({
             setSelected(null);
             onScan();
           }}
+          onAnswer={async (answer) => {
+            const err = await onAnswer(answer);
+            if (!err) setSelected(null);
+            return err;
+          }}
           onLocationHelp={() => {
             setSelected(null);
             onLocationHelp();
@@ -365,6 +383,7 @@ function LevelPopup({
   celebrateNow,
   onClose,
   onScan,
+  onAnswer,
   onLocationHelp,
 }: {
   selected: Selected;
@@ -376,9 +395,9 @@ function LevelPopup({
   celebrateNow: boolean;
   onClose: () => void;
   onScan: () => void;
+  onAnswer: (answer: string) => Promise<string | null>;
   onLocationHelp: () => void;
 }) {
-
   const isFinish = selected.kind === "finish";
   useEffect(() => {
     if (!isFinish || !celebrateNow) return;
@@ -419,6 +438,7 @@ function LevelPopup({
         near={near}
         geoStatus={geoStatus}
         onScan={onScan}
+        onAnswer={onAnswer}
         onClose={onClose}
         onLocationHelp={onLocationHelp}
       />
@@ -483,8 +503,16 @@ export function CandyDialog({
   );
 }
 
-/** Báo khi vừa vào bán kính 1 km quanh điểm bí mật */
-export function ArrivedDialog({ onScan, onClose }: { onScan: () => void; onClose: () => void }) {
+/** Vừa vào bán kính 1 km quanh điểm đến: lộ gợi ý chỗ giấu mã QR */
+export function ArrivedDialog({
+  hint,
+  onScan,
+  onClose,
+}: {
+  hint: string;
+  onScan: () => void;
+  onClose: () => void;
+}) {
   return (
     <CandyDialog heading="Đến nơi rồi!" onClose={onClose} z="z-50">
       <div className="flex flex-col items-center text-center">
@@ -493,11 +521,12 @@ export function ArrivedDialog({ onScan, onClose }: { onScan: () => void; onClose
           <span />
           <QrIcon size={38} />
         </div>
-        <h2 className="display-title mt-5 text-[24px]">Mã QR bí mật ở quanh đây</h2>
-        <p className="mt-2 max-w-[30ch] text-[16px] leading-snug text-muted">
-          Bạn đang ở trong vòng 1 km quanh điểm đến. Tìm mã QR bí mật rồi quét để biết điểm đến
-          tiếp theo.
+        <p className="mt-5 max-w-[30ch] text-[16px] leading-snug text-muted">
+          Bạn đã vào vòng 1 km quanh điểm đến. Nhiệm vụ tiếp theo: tìm mã QR bí mật.
         </p>
+        <div className="mt-6 w-full">
+          <QrHintCard hint={hint} />
+        </div>
         <button className="btn btn-primary mt-6 w-full" onClick={onScan} autoFocus>
           <QrIcon /> Quét mã QR
         </button>
@@ -569,8 +598,16 @@ function FinishInfo({ name, onClose }: { name: string; onClose: () => void }) {
   );
 }
 
-/** Thẻ giấy ghi gợi ý địa điểm */
-function ClueCard({ clue, label = "Gợi ý địa điểm" }: { clue: PublicClue; label?: string }) {
+/** Thẻ giấy ghi gợi ý địa điểm; `children` là cuống vé xé được (chỗ điền đáp án) */
+function ClueCard({
+  clue,
+  label = "Gợi ý địa điểm",
+  children,
+}: {
+  clue: PublicClue;
+  label?: string;
+  children?: ReactNode;
+}) {
   return (
     <figure className="lvl-clue w-full text-left">
       <figcaption className="lvl-clue-label">{label}</figcaption>
@@ -579,7 +616,90 @@ function ClueCard({ clue, label = "Gợi ý địa điểm" }: { clue: PublicClu
         // eslint-disable-next-line @next/next/no-img-element
         <img src={clue.imageUrl} alt="Hình gợi ý địa điểm" className="mt-3 w-full rounded-2xl" />
       )}
+      {children}
     </figure>
+  );
+}
+
+/** Mảnh giấy tím: gợi ý chỗ giấu mã QR, khác màu thẻ gợi ý địa điểm để không lẫn */
+function QrHintCard({ hint }: { hint: string | null }) {
+  return (
+    <figure className="lvl-clue lvl-secret w-full text-left">
+      <figcaption className="lvl-clue-label">Mã QR ở đâu?</figcaption>
+      <p className="whitespace-pre-line text-[17px] leading-relaxed text-ink">
+        {hint || "Mã QR bí mật được giấu đâu đó quanh đây. Nhìn kỹ xung quanh nhé!"}
+      </p>
+    </figure>
+  );
+}
+
+function shake(el: HTMLElement | null) {
+  if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  el.animate(
+    [0, -7, 7, -5, 5, -2, 0].map((x) => ({ transform: `translateX(${x}px)` })),
+    { duration: 420, easing: "ease-out" },
+  );
+}
+
+/** Bước 1 của màn: đọc gợi ý, gõ tên địa điểm vào cuống vé để kiểm tra */
+function SolveStep({
+  clue,
+  onAnswer,
+}: {
+  clue: PublicClue;
+  onAnswer: (answer: string) => Promise<string | null>;
+}) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const slotRef = useRef<HTMLLabelElement>(null);
+
+  async function submit(e: SubmitEvent) {
+    e.preventDefault();
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    setError(null);
+    const err = await onAnswer(text);
+    setBusy(false);
+    if (err) {
+      setError(err);
+      shake(slotRef.current);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="flex w-full flex-col items-center text-center" noValidate>
+      <ClueCard clue={clue}>
+        <label ref={slotRef} className={`lvl-answer ${error ? "is-wrong" : ""}`}>
+          <input
+            className="lvl-answer-input"
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              setError(null);
+            }}
+            aria-label="Tên địa điểm"
+            maxLength={120}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="done"
+            aria-invalid={!!error}
+            aria-describedby="answer-msg"
+          />
+        </label>
+      </ClueCard>
+      <p
+        id="answer-msg"
+        role={error ? "alert" : undefined}
+        className={`lvl-status mt-4 ${error ? "is-wrong" : ""}`}
+      >
+        {error ?? "Đoán ra rồi thì gõ tên địa điểm vào chỗ trống để kiểm tra."}
+      </p>
+      <button className="btn btn-primary mt-5 w-full" disabled={busy || !text.trim()}>
+        {busy ? <Spinner /> : "Kiểm tra địa điểm"}
+      </button>
+    </form>
   );
 }
 
@@ -594,10 +714,10 @@ function DoneInfo({ c, onClose }: { c: CompletedStage; onClose: () => void }) {
         <PlaceCard place={c.place} label="Địa điểm" mode="view" />
       </div>
 
-      {/* Chặng 1 bắt đầu bằng một câu đố: giữ lại để xem cô ấy đã đoán ra từ đâu */}
-      {c.order === 1 && c.clue.text && (
+      {/* Giữ lại gợi ý để xem cô ấy đã đoán ra từ đâu */}
+      {c.clue?.text && (
         <div className="mt-5 w-full">
-          <ClueCard clue={c.clue} label="Gợi ý ban đầu" />
+          <ClueCard clue={c.clue} />
         </div>
       )}
 
@@ -618,14 +738,16 @@ function DoneInfo({ c, onClose }: { c: CompletedStage; onClose: () => void }) {
 }
 
 /**
- * Màn đang chơi. Màn 1: gợi ý để tự đoán (không nói khoảng cách hay hướng).
- * Màn 2+: điểm đến đã lộ sau khi quét mã màn trước, có nút chỉ đường.
+ * Màn đang chơi, theo bước:
+ * solve — gợi ý + chỗ điền tên địa điểm; travel — điểm đến + chỉ đường;
+ * search — đã tới nơi, gợi ý chỗ giấu mã QR + nút quét.
  */
 function CurrentInfo({
   stage,
   near,
   geoStatus,
   onScan,
+  onAnswer,
   onClose,
   onLocationHelp,
 }: {
@@ -633,9 +755,24 @@ function CurrentInfo({
   near: boolean;
   geoStatus: GeoStatus;
   onScan: () => void;
+  onAnswer: (answer: string) => Promise<string | null>;
   onClose: () => void;
   onLocationHelp: () => void;
 }) {
+  if (stage.phase === "solve") return <SolveStep clue={stage.clue} onAnswer={onAnswer} />;
+
+  if (stage.phase === "search") {
+    return (
+      <div className="flex flex-col items-center text-center">
+        <QrHintCard hint={stage.qrHint} />
+        <p className="lvl-status mt-4">Tìm thấy mã QR thì quét để mở màn tiếp theo.</p>
+        <button className="btn btn-primary mt-5 w-full" onClick={onScan} autoFocus>
+          <QrIcon /> Quét mã QR
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center text-center">
       {stage.place ? (
@@ -643,43 +780,30 @@ function CurrentInfo({
       ) : (
         <ClueCard clue={stage.clue} />
       )}
-
       {near ? (
-        <>
-          <p className="lvl-status is-near mt-4">
-            Bạn đang ở trong vòng 1 km. Tìm mã QR bí mật quanh đây!
-          </p>
-          <button className="btn btn-primary mt-5 w-full" onClick={onScan} autoFocus>
-            <QrIcon /> Quét mã QR
-          </button>
-        </>
+        <p className="lvl-status is-near mt-4">Bạn đã vào vòng 1 km. Đang mở gợi ý tìm mã QR…</p>
       ) : (
-        <>
-          <p className="lvl-status mt-4">
-            {NO_LOCATION.includes(geoStatus) ? (
-              <>
-                Bật vị trí để app báo khi bạn đến gần.{" "}
-                <button className="font-bold text-peri-deep underline" onClick={onLocationHelp}>
-                  Xem cách bật
-                </button>
-              </>
-            ) : stage.place ? (
-              "Khi bạn đến trong vòng 1 km, app sẽ báo để bạn tìm mã QR bí mật."
-            ) : (
-              "Đoán xem đó là đâu rồi đi tới đó. Khi bạn đến trong vòng 1 km, app sẽ báo."
-            )}
-          </p>
-          <button className="btn btn-primary mt-5 w-full" onClick={onClose} autoFocus>
-            {stage.place ? "Lên đường thôi" : "Đi tìm thôi"}
-          </button>
-          <button
-            className="mt-3 min-h-11 text-[15px] font-semibold text-peri-deep"
-            onClick={onScan}
-          >
-            Thấy mã QR rồi? Quét ngay
-          </button>
-        </>
+        <p className="lvl-status mt-4">
+          {NO_LOCATION.includes(geoStatus) ? (
+            <>
+              Bật vị trí để app biết khi bạn đến nơi.{" "}
+              <button className="font-bold text-peri-deep underline" onClick={onLocationHelp}>
+                Xem cách bật
+              </button>
+            </>
+          ) : stage.place ? (
+            "Đến trong vòng 1\u00a0km, gợi\u00a0ý tìm mã QR sẽ hiện ra."
+          ) : (
+            "Đoán xem đó là đâu rồi đi tới đó. Đến trong vòng 1\u00a0km, gợi\u00a0ý tìm mã QR sẽ hiện ra."
+          )}
+        </p>
       )}
+      <button className="btn btn-primary mt-5 w-full" onClick={onClose} autoFocus>
+        Lên đường thôi
+      </button>
+      <button className="mt-3 min-h-11 text-[15px] font-semibold text-peri-deep" onClick={onScan}>
+        Thấy mã QR rồi? Quét ngay
+      </button>
     </div>
   );
 }

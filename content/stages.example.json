@@ -8,7 +8,12 @@
       "lng": 105.8524247,
       "clue": "NỘI DUNG THỬ. Hồ nước giữa lòng Hà Nội, gắn với truyền thuyết trả gươm cho Rùa Thần.",
       "clueImage": null,
-      "successMessage": "Chính xác! Nhiệm vụ 1 hoàn thành. Ban tổ chức đã mở khóa điểm đến tiếp theo."
+      "answers": [
+        "Hồ Gươm",
+        "Hồ Hoàn Kiếm"
+      ],
+      "qrHint": "NỘI DUNG THỬ. Mã QR ở chân cầu Thê Húc.",
+      "successMessage": "Chính xác! Nhiệm vụ 1 hoàn thành. Gợi ý tiếp theo đã được mở khóa."
     },
     {
       "order": 2,
@@ -18,6 +23,11 @@
       "lng": 105.8342,
       "clue": "NỘI DUNG THỬ. Quảng trường nơi Tuyên ngôn Độc lập được đọc năm 1945.",
       "clueImage": null,
+      "answers": [
+        "Quảng trường Ba Đình",
+        "Ba Đình"
+      ],
+      "qrHint": "NỘI DUNG THỬ. Mã QR ở cột cờ.",
       "successMessage": "Tuyệt vời! Nhiệm vụ 2 hoàn thành."
     },
     {
@@ -28,6 +38,10 @@
       "lng": 105.8371,
       "clue": "NỘI DUNG THỬ. Hồ nước lớn nhất Hà Nội, ngắm hoàng hôn đẹp nhất.",
       "clueImage": null,
+      "answers": [
+        "Hồ Tây"
+      ],
+      "qrHint": "NỘI DUNG THỬ. Mã QR ở ghế đá thứ ba.",
       "successMessage": "Giỏi quá! Điểm đến tiếp theo đang chờ bạn."
     },
     {
@@ -38,6 +52,10 @@
       "lng": 105.8235,
       "clue": "NỘI DUNG THỬ. Nơi mọi con đường của cuộc đua gặp nhau.",
       "clueImage": null,
+      "answers": [
+        "Lạc Long Quân"
+      ],
+      "qrHint": "NỘI DUNG THỬ. Mã QR ở cổng chính.",
       "successMessage": "Bạn đã vượt qua mọi thử thách!"
     }
   ]

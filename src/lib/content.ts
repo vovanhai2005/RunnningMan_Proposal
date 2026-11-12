@@ -4,7 +4,7 @@
  */
 export type StageContent = {
   order: number;
-  /** Tên địa điểm. Chặng 1: chỉ lộ sau khi quét được mã ở đó. Chặng 2+: lộ ngay khi quét mã chặng trước */
+  /** Tên địa điểm: lộ khi người chơi gõ đúng một trong `answers` */
   title: string;
   /** Địa chỉ hiện cùng tên địa điểm (vd. "số 10 phố Lý Quốc Sư, Hoàn Kiếm, Hà Nội") */
   address?: string;
@@ -13,14 +13,21 @@ export type StageContent = {
   lng?: number;
   /** Link Google Maps của điểm (script sẽ tự đọc tọa độ) */
   mapsUrl?: string;
-  /** Gợi ý địa điểm (chỉ dùng cho chặng 1: chưa có mã QR nào dẫn tới đó) */
+  /** Gợi ý / câu đố về địa điểm (hiện ngay khi mở màn) */
   clue?: string;
   clueImage?: string | null;
   /** Tên cũ của `clue` / `clueImage` (file nội dung kiểu cũ vẫn đọc được) */
   puzzle?: string;
   puzzleImage?: string | null;
-  /** Không còn dùng (bỏ bước trả lời câu đố) — giữ để file cũ vẫn hợp lệ */
+  /**
+   * Các cách viết tên địa điểm được chấp nhận (không phân biệt hoa thường, dấu, dấu câu;
+   * câu trả lời chứa trọn một cách viết cũng tính là đúng). Bỏ trống thì không có ô nhập,
+   * chỉ hiện gợi ý (không lộ tên địa điểm) cho tới khi quét được mã.
+   */
   answers?: string[];
+  /** Gợi ý chỗ giấu mã QR: hiện khi người chơi vào trong vòng 1 km quanh điểm đến */
+  qrHint?: string;
+  /** Tên cũ, không còn dùng — giữ để file cũ vẫn hợp lệ */
   hints?: string[];
   /** Lời nhắn hiện ra khi quét được mã ở địa điểm này */
   successMessage: string;
@@ -28,6 +35,8 @@ export type StageContent = {
 
 export const clueOf = (s: StageContent) => s.clue ?? s.puzzle ?? "";
 export const clueImageOf = (s: StageContent) => s.clueImage ?? s.puzzleImage ?? null;
+/** Lưu vào cột `hints` (mảng) của bảng stages: phần tử đầu là gợi ý chỗ giấu mã QR */
+export const qrHintsOf = (s: StageContent) => (s.qrHint ? [s.qrHint] : []);
 
 export type ContentFile = { stages: StageContent[] };
 
@@ -42,7 +51,7 @@ export function validateContent(c: ContentFile): string[] {
     const tag = `Chặng ${s.order}`;
     if (!s.title) errors.push(`${tag}: thiếu title`);
     if ((s.lat == null || s.lng == null) && !s.mapsUrl) errors.push(`${tag}: thiếu lat/lng hoặc mapsUrl`);
-    if (s.order === 1 && !clueOf(s)) errors.push(`${tag}: thiếu clue (gợi ý địa điểm chặng đầu)`);
+    if ((s.answers?.length ?? 0) > 0 && !clueOf(s)) errors.push(`${tag}: có answers nhưng thiếu clue`);
     if (!s.successMessage) errors.push(`${tag}: thiếu successMessage`);
   }
   return [...new Set(errors)];

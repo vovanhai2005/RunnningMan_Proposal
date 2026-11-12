@@ -23,15 +23,12 @@ export function WelcomeScreen({
   // Mỗi bước có biểu tượng riêng thay cho số 1–4: số thứ tự trông như số màn chơi và làm lộ
   // tổng số nhiệm vụ (bản đồ cố ý giấu điều này).
   const rules: { icon: RuleIcon; text: string }[] = [
+    { icon: "clue", text: "Đọc gợi ý, đoán ra địa điểm bí mật rồi gõ tên để kiểm tra." },
     {
-      icon: "clue",
-      text: "Màn đầu tiên là một gợi ý về địa điểm bí mật. Đoán xem đó là đâu rồi đi tới đó.",
+      icon: "near",
+      text: "Đoán đúng thì di chuyển tới đó. Vào vòng 1 km, bạn sẽ nhận gợi ý tìm mã QR.",
     },
-    { icon: "near", text: "Khi bạn đến trong vòng 1 km, app sẽ báo cho bạn." },
-    {
-      icon: "qr",
-      text: "Tìm mã QR bí mật quanh đó và bấm “Quét mã QR” để biết điểm đến tiếp theo.",
-    },
+    { icon: "qr", text: "Tìm mã QR và bấm “Quét mã QR” để mở gợi ý tiếp theo." },
     { icon: "flag", text: "Cứ thế đi tiếp cho tới khi về đích." },
   ];
 

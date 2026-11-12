@@ -18,23 +18,32 @@ export type PublicPlace = {
 };
 
 /**
- * Chặng đang chơi. Chặng 1 chỉ có gợi ý (place = null): người chơi phải tự đoán.
- * Từ chặng 2, quét được mã của chặng trước là lộ luôn điểm đến (place).
- * lat/lng luôn có để app báo khi vào bán kính NEAR_RADIUS_M.
+ * Bước của chặng đang chơi:
+ * - "solve": chỉ có gợi ý địa điểm, phải gõ đúng tên địa điểm (place = null)
+ * - "travel": đã đoán đúng, lộ điểm đến; vào bán kính NEAR_RADIUS_M thì báo server là đã tới
+ * - "search": đã tới nơi, lộ gợi ý chỗ giấu mã QR; quét đúng mã là qua chặng
  */
+export type StagePhase = "solve" | "travel" | "search";
+
 export type PublicStage = {
   order: number;
+  phase: StagePhase;
+  /** Gợi ý / câu đố về địa điểm */
   clue: PublicClue;
+  /** Điểm đến; null khi chưa đoán đúng */
   place: PublicPlace | null;
-  lat: number;
-  lng: number;
+  /** Tọa độ để app biết đã vào bán kính chưa; chỉ có ở bước "travel" */
+  target: { lat: number; lng: number } | null;
+  /** Gợi ý chỗ giấu mã QR; chỉ có ở bước "search" (rỗng nếu Ban tổ chức không ghi gì) */
+  qrHint: string | null;
 };
 
 /** Tóm tắt chặng đã xong, hiện trên bản đồ màn chơi. Chặng chưa mở không bao giờ có ở đây. */
 export type CompletedStage = {
   order: number;
   place: PublicPlace;
-  clue: PublicClue;
+  /** Gợi ý đã dẫn tới địa điểm này; null nếu chặng không bắt đầu bằng gợi ý */
+  clue: PublicClue | null;
   successMessage: string;
 };
 
@@ -62,3 +71,13 @@ export type ScanResult =
   /** Quét lại mã của chặng đã xong: chỉ xem lại */
   | { ok: true; kind: "review"; stage: CompletedStage; state: GameState }
   | { ok: false; reason: "wrong_stage" | "invalid" | "not_started"; message: string };
+
+export type ArriveResult =
+  /** Server xác nhận đã vào bán kính: state.stage.qrHint giờ đã có */
+  { ok: true; state: GameState } | { ok: false; reason: "too_far" | "not_ready"; message: string };
+
+export type AnswerResult =
+  /** Đoán đúng: state.stage.place giờ là điểm đến của chặng */
+  | { ok: true; correct: true; state: GameState }
+  | { ok: true; correct: false; message: string }
+  | { ok: false; reason: "not_ready"; message: string };

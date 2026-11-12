@@ -29,6 +29,11 @@ describe("isCorrectAnswer", () => {
     expect(isCorrectAnswer(" HO HOAN KIEM ", accepted)).toBe(true);
     expect(isCorrectAnswer("hồ gươm", accepted)).toBe(true);
   });
+  it("câu trả lời chứa trọn một đáp án cũng đúng", () => {
+    expect(isCorrectAnswer("chắc là Hồ Gươm, Hà Nội", accepted)).toBe(true);
+    expect(isCorrectAnswer("tòa T8 Times City", ["T8"])).toBe(true);
+    expect(isCorrectAnswer("T80", ["T8"])).toBe(false);
+  });
   it("từ chối đáp án sai hoặc rỗng", () => {
     expect(isCorrectAnswer("ho tay", accepted)).toBe(false);
     expect(isCorrectAnswer("   ", accepted)).toBe(false);

@@ -1,5 +1,5 @@
 "use client";
-import type { PublicPlace } from "@/lib/types";
+import type { PublicStage } from "@/lib/types";
 import { PlaceCard } from "./PlaceCard";
 import { Sheet, Sparkles, StageTag } from "./ui";
 
@@ -11,8 +11,8 @@ export function SuccessSheet({
 }: {
   order: number;
   message: string;
-  /** Điểm đến tiếp theo vừa được mở; null khi vừa xong chặng cuối */
-  next: PublicPlace | null;
+  /** Màn tiếp theo vừa được mở; null khi vừa xong màn cuối */
+  next: PublicStage | null;
   onContinue: () => void;
 }) {
   return (
@@ -43,10 +43,16 @@ export function SuccessSheet({
             <p className="mt-2 text-[14px] font-medium text-muted">Ban tổ chức</p>
           </>
         )}
-        {next && (
+        {next?.place ? (
           <div className="mt-6 w-full">
-            <PlaceCard place={next} label="Điểm đến tiếp theo" />
+            <PlaceCard place={next.place} label="Điểm đến tiếp theo" />
           </div>
+        ) : (
+          next && (
+            <p className="lvl-status mt-6">
+              Màn tiếp theo có một gợi ý mới. Đoán ra địa điểm để biết nơi cần đến.
+            </p>
+          )
         )}
         <button className="btn btn-primary mt-6 w-full" onClick={onContinue}>
           {next ? "Mở màn tiếp theo" : "Về đích"}

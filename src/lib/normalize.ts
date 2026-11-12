@@ -14,11 +14,17 @@ export function normalizeAnswer(input: string): string {
     .trim();
 }
 
-/** Đúng nếu khớp một trong các cách viết được chấp nhận. */
+/**
+ * Đúng nếu khớp một trong các cách viết được chấp nhận, hoặc chứa trọn một cách viết đó
+ * thành từ riêng ("tòa T8 Times City Hà Nội" chứa "T8 Times City").
+ */
 export function isCorrectAnswer(input: string, accepted: string[]): boolean {
   const given = normalizeAnswer(input);
   if (!given) return false;
-  return accepted.some((a) => normalizeAnswer(a) === given);
+  return accepted.some((a) => {
+    const want = normalizeAnswer(a);
+    return !!want && ` ${given} `.includes(` ${want} `);
+  });
 }
 
 /** Mã chữ in dưới QR: không phân biệt hoa thường, bỏ khoảng trắng và gạch nối. */
