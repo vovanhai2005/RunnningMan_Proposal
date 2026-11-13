@@ -4,7 +4,7 @@
  */
 export type StageContent = {
   order: number;
-  /** Tên địa điểm: lộ khi người chơi gõ đúng một trong `answers` */
+  /** Tên địa điểm: lộ khi gõ đúng một trong `answers`; màn không có `clue` thì lộ ngay */
   title: string;
   /** Địa chỉ hiện cùng tên địa điểm (vd. "số 10 phố Lý Quốc Sư, Hoàn Kiếm, Hà Nội") */
   address?: string;
@@ -13,7 +13,10 @@ export type StageContent = {
   lng?: number;
   /** Link Google Maps của điểm (script sẽ tự đọc tọa độ) */
   mapsUrl?: string;
-  /** Gợi ý / câu đố về địa điểm (hiện ngay khi mở màn) */
+  /**
+   * Gợi ý / câu đố về địa điểm (hiện ngay khi mở màn). Bỏ trống thì màn đó không có bước đoán:
+   * quét được mã của màn trước là lộ luôn tên + địa chỉ.
+   */
   clue?: string;
   clueImage?: string | null;
   /** Tên cũ của `clue` / `clueImage` (file nội dung kiểu cũ vẫn đọc được) */
@@ -21,8 +24,8 @@ export type StageContent = {
   puzzleImage?: string | null;
   /**
    * Các cách viết tên địa điểm được chấp nhận (không phân biệt hoa thường, dấu, dấu câu;
-   * câu trả lời chứa trọn một cách viết cũng tính là đúng). Bỏ trống thì không có ô nhập,
-   * chỉ hiện gợi ý (không lộ tên địa điểm) cho tới khi quét được mã.
+   * câu trả lời chứa trọn một cách viết cũng tính là đúng). Có `clue` mà bỏ trống
+   * `answers` thì không có ô nhập, chỉ hiện gợi ý (không lộ tên địa điểm).
    */
   answers?: string[];
   /** Gợi ý chỗ giấu mã QR: hiện khi người chơi vào trong vòng 1 km quanh điểm đến */

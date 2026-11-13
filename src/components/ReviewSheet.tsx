@@ -1,16 +1,32 @@
 "use client";
 import type { CompletedStage } from "@/lib/types";
 import { PlaceCard } from "./PlaceCard";
+import { MemoryChip } from "./story";
 import { Sheet, StageTag } from "./ui";
 
 /** Quét lại mã QR của màn đã xong: xem lại địa điểm, gợi ý và lời nhắn */
-export function ReviewSheet({ stage, onClose }: { stage: CompletedStage; onClose: () => void }) {
+export function ReviewSheet({
+  stage,
+  onClose,
+  onMemories,
+}: {
+  stage: CompletedStage;
+  onClose: () => void;
+  /** Mở lại ảnh kỷ niệm của màn này */
+  onMemories: () => void;
+}) {
   return (
     <Sheet onClose={onClose}>
       <div className="mt-2 flex items-center gap-2 pr-24">
         <StageTag>Nhiệm vụ {stage.order}</StageTag>
         <span className="text-[14px] font-semibold text-ok">Đã tìm thấy</span>
       </div>
+      {stage.chapter && <p className="lvl-chapter" style={{ margin: "16px auto 0" }}>{stage.chapter.title}</p>}
+      {stage.memories.length > 0 && (
+        <div className="mt-5">
+          <MemoryChip memories={stage.memories} onOpen={onMemories} />
+        </div>
+      )}
       <div className="mt-6">
         <PlaceCard place={stage.place} label="Địa điểm" mode="view" />
       </div>

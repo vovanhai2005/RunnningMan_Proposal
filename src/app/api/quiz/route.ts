@@ -1,0 +1,8 @@
+import { readJson, withGame } from "@/server/api";
+
+/** Trả lời câu hỏi sau khi quét mã (chặng cuối) */
+export async function POST(req: Request) {
+  const body = await readJson<{ answer: string }>(req);
+  const answer = typeof body.answer === "string" ? body.answer.slice(0, 200) : "";
+  return withGame((game, userId) => game.quiz(userId, answer));
+}

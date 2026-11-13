@@ -14,6 +14,7 @@
     "player:reset": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/reset-player.mts",
     "player:reset:prod": "node --env-file=.env.prod --import tsx scripts/reset-player.mts",
     "qr:print": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/print-qr.mts",
+    "memories:build": "node scripts/build-memories.mjs",
     "status": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/status.mts",
     "status:prod": "node --env-file=.env.prod --import tsx scripts/status.mts",
     "postinstall": "node scripts/copy-map-worker.mjs",

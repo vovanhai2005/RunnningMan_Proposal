@@ -15,6 +15,8 @@ export function SuccessSheet({
   next: PublicStage | null;
   onContinue: () => void;
 }) {
+  /** Màn sau còn một trạm nghỉ chen trước */
+  const resting = !!next?.rest && !next.rest.done;
   return (
     <Sheet tone="glow">
       <Sparkles />
@@ -43,19 +45,25 @@ export function SuccessSheet({
             <p className="mt-2 text-[14px] font-medium text-muted">Ban tổ chức</p>
           </>
         )}
-        {next?.place ? (
+        {next?.place && (
           <div className="mt-6 w-full">
             <PlaceCard place={next.place} label="Điểm đến tiếp theo" />
           </div>
+        )}
+        {resting ? (
+          <p className="lvl-status mt-4">
+            Trước khi lên đường có một trạm nghỉ. Nghỉ chân một chút đã nhé!
+          </p>
         ) : (
-          next && (
+          next &&
+          !next.place && (
             <p className="lvl-status mt-6">
               Màn tiếp theo có một gợi ý mới. Đoán ra địa điểm để biết nơi cần đến.
             </p>
           )
         )}
         <button className="btn btn-primary mt-6 w-full" onClick={onContinue}>
-          {next ? "Mở màn tiếp theo" : "Về đích"}
+          {resting ? "Đến trạm nghỉ" : next ? "Mở màn tiếp theo" : "Về đích"}
         </button>
       </div>
     </Sheet>

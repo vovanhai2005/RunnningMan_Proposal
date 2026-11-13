@@ -607,6 +607,7 @@ input {
 .lvl-node,
 .lvl-finish,
 .lvl-start,
+.lvl-rest,
 .lvl-avatar {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -1369,6 +1370,40 @@ input {
   outline: none;
 }
 
+/* Nút gợi ý của câu hỏi cuối: khóa thì mờ, có đồng hồ đếm ngược; mở thì thành viên kẹo vàng */
+.lvl-hint-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 2.5px solid var(--grape);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #fff1a0 0%, var(--butter) 70%);
+  color: var(--grape);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  box-shadow: 0 4px 0 var(--grape);
+  touch-action: manipulation;
+}
+.lvl-hint-btn:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--grape);
+}
+.lvl-hint-btn:disabled {
+  border-color: var(--line);
+  background: #f3f2fc;
+  color: var(--muted);
+  box-shadow: none;
+}
+.lvl-hint-clock {
+  min-width: 3.2ch;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
 /* Mảnh giấy tím: gợi ý chỗ giấu mã QR (khác màu thẻ gợi ý địa điểm) */
 .lvl-secret {
   border-color: rgba(111, 124, 247, 0.5);
@@ -1398,7 +1433,592 @@ input {
   font-weight: 600;
 }
 
+/* Tên chặng ở đầu bảng thông tin màn */
+.lvl-chapter {
+  margin: -4px auto 16px;
+  max-width: 28ch;
+  text-align: center;
+  text-wrap: balance;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--grape);
+}
+
+/* ================= Lớp câu chuyện: màn mở đầu chặng + ảnh kỷ niệm =================
+ * Bản đồ là "ban ngày" kẹo pastel; những khoảnh khắc của hai người nằm trên nền "đêm tím"
+ * nhung, chữ vàng bơ, vệt chấm hồng của con đường kẹo dẫn tới trái tim.
+ */
+.story-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(env(safe-area-inset-top) + 22px) calc(env(safe-area-inset-right) + 16px)
+    calc(env(safe-area-inset-bottom) + 18px) calc(env(safe-area-inset-left) + 16px);
+  overflow: hidden;
+  background: radial-gradient(130% 75% at 50% 40%, #6a2fa6 0%, #4b1d78 50%, #2e0f52 100%);
+  color: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+  animation: story-in 0.35s ease both;
+}
+@keyframes story-in {
+  from {
+    opacity: 0;
+  }
+}
+.story-layer.is-leaving {
+  animation: story-out 0.38s ease forwards;
+  pointer-events: none;
+}
+@keyframes story-out {
+  to {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+.story-sky {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(255, 179, 208, 0.14) 1.2px, transparent 1.6px) 0 0 / 22px
+      22px,
+    radial-gradient(70% 40% at 50% 108%, rgba(240, 70, 138, 0.38) 0%, transparent 70%);
+}
+.story-layer > :not(.story-sky) {
+  position: relative;
+}
+
+/* ---- Màn mở đầu chặng ---- */
+.chapter {
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+}
+.chapter-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 440px;
+  margin: auto 0;
+}
+.chapter-tag {
+  min-height: 38px;
+  padding: 0 16px;
+  font-size: 19px;
+  animation: tag-drop 0.75s cubic-bezier(0.25, 1.5, 0.4, 1) 0.12s both;
+}
+@keyframes tag-drop {
+  from {
+    transform: translateY(-70px) rotate(-16deg);
+    opacity: 0;
+  }
+}
+.chapter-title {
+  margin-top: 26px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.2; /* đủ chỗ cho dấu tiếng Việt chồng hai tầng */
+  letter-spacing: 0.005em;
+  word-spacing: 0.08em;
+  text-wrap: balance;
+}
+/* Mỗi chữ = 2 lớp: viền tím đậm + khối đùn hồng phía sau, mặt vàng bơ bóng phía trước */
+.chapter-word {
+  display: inline-grid;
+  transform-origin: 50% 90%;
+  animation: word-rise 0.62s cubic-bezier(0.2, 1.35, 0.4, 1) both;
+}
+.chapter-word > span {
+  grid-area: 1 / 1;
+}
+.chapter-word-back {
+  color: var(--grape-deep);
+  -webkit-text-stroke: 0.16em var(--grape-deep);
+  text-shadow:
+    0 0.05em 0 var(--accent-press),
+    0 0.08em 0 var(--accent-press),
+    0 0.11em 0 #8f1d50,
+    0 0.32em 0.28em rgba(20, 4, 40, 0.5);
+}
+.chapter-word-face {
+  color: transparent;
+  background: linear-gradient(180deg, #fffdf0 0%, #fff3a6 26%, #ffd93b 52%, #ffb422 80%, #ff9a2a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+@keyframes word-rise {
+  0% {
+    transform: translateY(0.7em) scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(-0.06em) scale(1.06, 0.95);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+.chapter-trail {
+  margin-top: 22px;
+  max-width: 68vw;
+  height: auto;
+  overflow: visible;
+}
+.chapter-trail-wipe {
+  transform: scaleX(0);
+  animation: trail-wipe 0.75s cubic-bezier(0.45, 0, 0.3, 1) var(--d) forwards;
+}
+@keyframes trail-wipe {
+  to {
+    transform: scaleX(1);
+  }
+}
+.chapter-trail-heart {
+  transform-box: fill-box;
+  transform-origin: 50% 70%;
+  animation:
+    heart-pop 0.55s cubic-bezier(0.2, 1.7, 0.4, 1) calc(var(--d) + 0.6s) both,
+    heart-beat 1.5s ease-in-out calc(var(--d) + 1.4s) infinite;
+}
+@keyframes heart-pop {
+  from {
+    transform: scale(0);
+  }
+}
+@keyframes heart-beat {
+  0%,
+  45%,
+  100% {
+    transform: scale(1);
+  }
+  15% {
+    transform: scale(1.14);
+  }
+  30% {
+    transform: scale(0.98);
+  }
+}
+.chapter-foot {
+  width: 100%;
+  max-width: 360px;
+  animation: foot-in 0.45s ease both;
+}
+@keyframes foot-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* ---- Trạm nghỉ ("Chặng 2.5") ----
+ * Ngược với màn mở đầu chặng (đêm tím, chữ bật lên): trời chiều tím → hồng → cam đào,
+ * mặt trời lặn dần, tách trà bốc khói, chữ rơi xuống chậm như lá. Mọi thứ chậm lại.
+ */
+.rest-layer {
+  background: linear-gradient(180deg, #4b1d78 0%, #8a3f9e 34%, #d96c9a 64%, #ffae86 100%);
+}
+.rest-sky {
+  background: radial-gradient(circle at 1px 1px, rgba(255, 236, 244, 0.13) 1.2px, transparent 1.6px)
+    0 0 / 22px 22px;
+}
+.rest-sun {
+  position: absolute;
+  left: 50%;
+  bottom: -46vw;
+  width: 120vw;
+  max-width: 760px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 233, 160, 0.95) 0%,
+    rgba(255, 200, 130, 0.55) 30%,
+    rgba(255, 170, 130, 0.18) 52%,
+    transparent 68%
+  );
+  transform: translateX(-50%);
+  animation: sun-set 7s cubic-bezier(0.25, 0, 0.3, 1) both;
+}
+@keyframes sun-set {
+  from {
+    transform: translate(-50%, -14%);
+  }
+}
+.rest-tag {
+  animation: tag-settle 1s cubic-bezier(0.3, 0.7, 0.3, 1) 0.15s both;
+}
+@keyframes tag-settle {
+  from {
+    transform: translateY(-26px) rotate(-9deg);
+    opacity: 0;
+  }
+}
+.rest-cup {
+  width: min(44vw, 176px);
+  height: auto;
+  margin-top: 22px;
+  overflow: visible;
+  filter: drop-shadow(0 14px 16px rgba(46, 15, 82, 0.35));
+  animation: cup-in 1s cubic-bezier(0.25, 1.15, 0.4, 1) both;
+}
+@keyframes cup-in {
+  from {
+    transform: translateY(28px) scale(0.86);
+    opacity: 0;
+  }
+}
+.teacup-steam path {
+  stroke-dasharray: 60;
+  stroke-dashoffset: 60;
+  opacity: 0;
+  animation: steam 3.4s ease-in-out calc(1s + var(--i) * 0.55s) infinite;
+}
+@keyframes steam {
+  0% {
+    stroke-dashoffset: 60;
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  30% {
+    opacity: 0.9;
+  }
+  65% {
+    stroke-dashoffset: 0;
+    opacity: 0.7;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+}
+.rest-title {
+  margin-top: 20px;
+  font-size: min(46px, 11.5vw);
+}
+/* Chữ rơi xuống, chao nhẹ sang hai bên rồi nằm yên */
+.rest-word {
+  transform-origin: 50% 0;
+  animation: word-settle 1.1s cubic-bezier(0.22, 0.8, 0.3, 1) both;
+}
+@keyframes word-settle {
+  0% {
+    transform: translateY(-0.9em) rotate(calc(var(--tilt) * 8deg));
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(0.07em) rotate(calc(var(--tilt) * -2deg));
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* Trạm nghỉ trên bản đồ: tách trà trong viên kẹo tròn, nằm giữa đường */
+.lvl-rest {
+  z-index: 1;
+  touch-action: manipulation;
+}
+.lvl-rest-body {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border: 3px solid var(--grape);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, #fff 0%, #ffe6c9 55%, #ffc39a 100%);
+  box-shadow:
+    0 5px 0 var(--grape-deep),
+    0 14px 18px -10px rgba(46, 15, 82, 0.6);
+}
+.lvl-rest .teacup {
+  width: 40px;
+  height: auto;
+  margin-top: -4px;
+  overflow: visible;
+}
+.lvl-rest.is-done .lvl-rest-body {
+  background: radial-gradient(circle at 35% 28%, #fff 0%, #ffe9f2 60%, #ffcfe1 100%);
+}
+.lvl-rest.is-arriving .lvl-rest-body {
+  animation: rest-pop 0.65s cubic-bezier(0.2, 1.6, 0.4, 1) 0.35s both;
+}
+@keyframes rest-pop {
+  from {
+    transform: scale(0);
+  }
+}
+.lvl-rest:active .lvl-rest-body {
+  transform: scale(0.94);
+}
+/* Lời nhắn ở trạm nghỉ: thư tay màu đào */
+.lvl-rest-note {
+  padding: 16px 18px 14px;
+  border-radius: 24px;
+  background: #fff1e6;
+  box-shadow: inset 0 0 0 2px rgba(255, 174, 134, 0.55);
+}
+.lvl-rest-note blockquote {
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.lvl-rest-note figcaption {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* ---- Chồng ảnh kỷ niệm ---- */
+.reel-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 420px;
+  text-align: center;
+}
+.reel-title {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 6.6vw, 28px);
+  font-weight: 800;
+  line-height: 1.2;
+  text-wrap: balance;
+  text-shadow:
+    0 2px 0 var(--accent-press),
+    0 3px 0 var(--accent-press),
+    0 10px 16px rgba(20, 4, 40, 0.45);
+}
+.reel-stack {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  margin: 18px 0 4px;
+  container-type: size;
+}
+.mem-card {
+  grid-area: 1 / 1;
+  position: relative;
+  aspect-ratio: var(--ar);
+  width: min(calc(100cqw - 24px), 420px, calc((100cqh - 40px) * var(--ar)));
+  padding: 7px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow:
+    0 0 0 3px var(--grape-deep),
+    0 7px 0 3px var(--grape-deep),
+    0 28px 40px -14px rgba(10, 2, 24, 0.75);
+  touch-action: none;
+  cursor: grab;
+  transition:
+    transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.08),
+    opacity 0.3s ease;
+}
+.mem-card.is-dragging {
+  cursor: grabbing;
+  transition: none;
+}
+.mem-card.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: none;
+}
+.mem-media {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 15px;
+  background: #3a1466;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+}
+/* Mở ra: chia ảnh từ dưới góc trái lên, ảnh dưới cùng tới trước */
+.mem-card.is-dealing {
+  animation: mem-deal 0.7s cubic-bezier(0.2, 1, 0.35, 1) both;
+}
+@keyframes mem-deal {
+  0% {
+    transform: translate(-28vw, 80vh) rotate(-38deg);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+}
+/* Qua ảnh: văng sang bên rồi nhét xuống đáy chồng */
+.mem-card.is-cycling {
+  animation: mem-cycle 0.62s cubic-bezier(0.45, 0, 0.35, 1) both;
+}
+@keyframes mem-cycle {
+  0% {
+    transform: translateX(var(--dx)) rotate(var(--r0));
+    opacity: 1;
+    z-index: 90;
+  }
+  45% {
+    transform: translateX(calc(var(--dir) * 92%)) rotate(calc(var(--dir) * 16deg));
+    opacity: 1;
+    z-index: 90;
+  }
+  46%,
+  100% {
+    z-index: 0;
+  }
+}
+/* Lùi lại: ảnh vừa xem bay từ bên trái về đầu chồng */
+.mem-card.is-returning {
+  animation: mem-return 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.05) both;
+}
+@keyframes mem-return {
+  from {
+    transform: translateX(-92%) rotate(-16deg);
+    opacity: 1;
+    z-index: 90;
+  }
+}
+.mem-sound {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  background: rgba(46, 15, 82, 0.72);
+  color: #fff;
+  touch-action: manipulation;
+}
+.reel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 14px;
+}
+.reel-arrow {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  touch-action: manipulation;
+}
+.reel-arrow:active {
+  transform: scale(0.92);
+}
+/* Chấm tiến độ: hạt hồng như chấm giữa con đường kẹo */
+.reel-dots {
+  display: flex;
+  gap: 9px;
+}
+.reel-dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+  transition:
+    background-color 0.2s,
+    transform 0.2s;
+}
+.reel-dots i.is-on {
+  background: var(--accent);
+  transform: scale(1.4);
+  box-shadow: 0 0 0 1.5px #fff;
+}
+.reel-foot {
+  width: 100%;
+  max-width: 360px;
+  margin-top: 18px;
+}
+.reel-close {
+  --ledge-color: #2e0f52;
+  min-height: 56px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--grape);
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+
+/* ---- Nút xem lại ảnh kỷ niệm (trong bảng màn đã qua) ---- */
+.mem-chip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 76px;
+  padding: 10px 14px 10px 12px;
+  border: 3px solid var(--grape);
+  border-radius: 22px;
+  background: radial-gradient(130% 150% at 15% 50%, #6a2fa6 0%, #4b1d78 60%, #3a1466 100%);
+  color: #fff;
+  text-align: left;
+  box-shadow:
+    0 5px 0 var(--grape-deep),
+    0 16px 22px -12px rgba(46, 15, 82, 0.6);
+  touch-action: manipulation;
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease;
+}
+.mem-chip:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--grape-deep);
+}
+.mem-chip-fan {
+  position: relative;
+  flex-shrink: 0;
+  width: 72px;
+  height: 56px;
+}
+.mem-chip-fan img {
+  position: absolute;
+  top: 4px;
+  left: calc(var(--i) * 15px);
+  width: 38px;
+  height: 48px;
+  object-fit: cover;
+  border: 2.5px solid #fff;
+  border-radius: 8px;
+  box-shadow: 0 3px 0 var(--grape-deep);
+  rotate: calc((var(--i) - 1) * 9deg);
+}
+.mem-chip-title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.mem-chip-count {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.78);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .chapter-trail-wipe {
+    transform: none;
+  }
   *,
   *::before,
   *::after {

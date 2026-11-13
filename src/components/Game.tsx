@@ -12,10 +12,13 @@ import {
   type CompletedStage,
   type GameState,
   type PublicStage,
+  type QuizResult,
   type ScanResult,
 } from "@/lib/types";
-import { ArrivedDialog, GameMap, type MapIntro } from "./GameMap";
+import { ArrivedDialog, CandyDialog, GameMap, type MapIntro } from "./GameMap";
+import { QuizStep } from "./Quiz";
 import { LocationHelpSheet } from "./LocationHelpSheet";
+import { MemoryReel } from "./MemoryReel";
 import { ReviewSheet } from "./ReviewSheet";
 import { ScanSheet } from "./ScanSheet";
 import { SolvedSheet } from "./SolvedSheet";
@@ -24,7 +27,16 @@ import { Spinner, StatusScreen } from "./ui";
 import { WelcomeScreen } from "./WelcomeScreen";
 
 type Phase = "loading" | "ready" | "offline" | "unregistered";
-type SheetKind = null | "scan" | "review" | "success" | "solved" | "arrived" | "location";
+type SheetKind =
+  | null
+  | "scan"
+  | "review"
+  | "memories"
+  | "success"
+  | "solved"
+  | "arrived"
+  | "quiz"
+  | "location";
 
 const PENDING_SCAN_KEY = "rm_pending_scan";
 /** Báo server "đã tới nơi" thất bại (mất sóng, GPS lệch) thì chờ chừng này rồi thử lại */
@@ -50,6 +62,8 @@ export default function Game() {
   /** Màn vừa đoán đúng địa điểm: hiện điểm đến vừa lộ */
   const [solved, setSolved] = useState<PublicStage | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+  /** Ảnh kỷ niệm đang mở. `unlock`: vừa quét được mã, xem xong thì sang bảng "Tìm thấy rồi!" */
+  const [reel, setReel] = useState<{ stage: CompletedStage; unlock: boolean } | null>(null);
   const [online, setOnline] = useState(() =>
     typeof navigator === "undefined" ? true : navigator.onLine,
   );
@@ -201,6 +215,20 @@ export default function Game() {
     [applyState, handleAuthError],
   );
 
+  /** Vừa hoàn thành một chặng (quét mã, hoặc trả lời đúng câu hỏi cuối): ảnh kỷ niệm → chúc mừng */
+  const showCompleted = useCallback((order: number, message: string, next: GameState) => {
+    sfx.success();
+    void celebrate();
+    setSuccess({ order, message, next });
+    const done = next.completed.find((c) => c.order === order);
+    if (done && done.memories.length > 0) {
+      setReel({ stage: done, unlock: true });
+      setSheet("memories");
+    } else {
+      setSheet("success");
+    }
+  }, []);
+
   // --- Quét mã: đúng mã của chặng đang chơi là qua màn ---
   const submitScan = useCallback(
     async (input: { token?: string; code?: string }): Promise<string | null> => {
@@ -218,17 +246,42 @@ export default function Game() {
           setSheet("review");
           return null;
         }
-        sfx.success();
-        void celebrate();
-        setSuccess({ order: r.order, message: r.successMessage, next: r.state });
-        setSheet("success");
+        if (r.kind === "quiz") {
+          // Chặng cuối: quét xong còn một câu hỏi
+          sfx.scan();
+          applyState(r.state);
+          setSheet("quiz");
+          return null;
+        }
+        // Phần thưởng của chặng: ảnh kỷ niệm hiện ngay, xem xong mới tới bảng chúc mừng
+        showCompleted(r.order, r.successMessage, r.state);
         return null;
       } catch (e) {
         if (handleAuthError(e)) return null;
         return e instanceof ApiError ? e.message : "Có lỗi xảy ra, thử lại nhé.";
       }
     },
-    [applyState, handleAuthError],
+    [applyState, handleAuthError, showCompleted],
+  );
+
+  // --- Câu hỏi sau khi quét mã: đúng là hoàn thành chặng ---
+  const submitQuiz = useCallback(
+    async (answer: string): Promise<string | null> => {
+      try {
+        const r = await api<QuizResult>("/api/quiz", { answer });
+        if (!r.ok) return r.message;
+        if (!r.correct) {
+          sfx.wrong();
+          return r.message;
+        }
+        showCompleted(r.order, r.successMessage, r.state);
+        return null;
+      } catch (e) {
+        if (handleAuthError(e)) return null;
+        return e instanceof ApiError ? e.message : "Có lỗi xảy ra, thử lại nhé.";
+      }
+    },
+    [handleAuthError, showCompleted],
   );
 
   // Mã QR mở bằng app Camera: xử lý sau khi đã đăng nhập và đã bắt đầu
@@ -275,11 +328,27 @@ export default function Game() {
       setSuccess(null);
       setSolved(null);
       setReview(null);
+      setReel(null);
       setSheet(null);
       applyState(s);
     } catch (e) {
       if (handleAuthError(e)) return;
       alert(e instanceof ApiError ? e.message : "Chưa xóa được, thử lại nhé.");
+    }
+  }, [applyState, handleAuthError]);
+
+  // --- Trạm nghỉ: "Nghỉ xong, lên đường" mở chặng ngay sau trạm (chạy hiệu ứng phá xích) ---
+  const finishRest = useCallback(async (): Promise<string | null> => {
+    try {
+      const s = await api<GameState>("/api/rest", {});
+      const order = s.stage?.order;
+      if (order != null) setMapIntro({ from: order - 0.5, open: order });
+      sfx.scan();
+      applyState(s);
+      return null;
+    } catch (e) {
+      if (handleAuthError(e)) return null;
+      return e instanceof ApiError ? e.message : "Có lỗi xảy ra, thử lại nhé.";
     }
   }, [applyState, handleAuthError]);
 
@@ -350,7 +419,8 @@ export default function Game() {
     <>
       <GameMap
         // Sang màn mới / về đích thì dựng lại bản đồ để chạy hiệu ứng phá xích
-        key={finished ? "finish" : state.stage?.order}
+        // Nghỉ xong ở trạm nghỉ cũng dựng lại để phá xích màn sau trạm
+        key={finished ? "finish" : `${state.stage?.order}${state.stage?.phase === "rest" ? "-rest" : ""}`}
         state={state}
         near={near}
         geoStatus={geoStatus}
@@ -361,6 +431,10 @@ export default function Game() {
         onAnswer={submitAnswer}
         onLocationHelp={() => setSheet("location")}
         onReset={reset}
+        onMemories={(stage) => setReel({ stage, unlock: false })}
+        onRest={finishRest}
+        onQuiz={submitQuiz}
+        onRefresh={refresh}
       />
 
       {sheet === "arrived" && stage?.phase === "search" && (
@@ -388,7 +462,11 @@ export default function Game() {
       )}
 
       {sheet === "review" && review && (
-        <ReviewSheet stage={review} onClose={() => setSheet(null)} />
+        <ReviewSheet
+          stage={review}
+          onClose={() => setSheet(null)}
+          onMemories={() => setReel({ stage: review, unlock: false })}
+        />
       )}
 
       {sheet === "success" && success && (
@@ -407,7 +485,30 @@ export default function Game() {
         />
       )}
 
+      {sheet === "quiz" && stage?.phase === "quiz" && stage.quiz && (
+        <CandyDialog heading={`Nhiệm vụ ${stage.order}`} onClose={() => setSheet(null)} z="z-50">
+          <QuizStep
+            quiz={stage.quiz}
+            serverNow={state.serverNow}
+            onAnswer={submitQuiz}
+            onHintDue={refresh}
+          />
+        </CandyDialog>
+      )}
+
       {sheet === "location" && <LocationHelpSheet onClose={() => setSheet(null)} />}
+
+      {reel && (
+        <MemoryReel
+          key={`${reel.stage.order}-${reel.unlock}`}
+          stage={reel.stage}
+          unlock={reel.unlock}
+          onDone={() => {
+            setReel(null);
+            if (reel.unlock) setSheet("success");
+          }}
+        />
+      )}
     </>
   );
 }

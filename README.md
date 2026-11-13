@@ -59,13 +59,13 @@ Sửa `content/stages.json`, mỗi chặng:
 | Trường | Ý nghĩa |
 | --- | --- |
 | `order` | 1, 2, 3, 4 |
-| `title` | Tên địa điểm: lộ khi người chơi gõ đúng một trong `answers` |
+| `title` | Tên địa điểm: lộ khi người chơi gõ đúng một trong `answers`. Màn không có `clue` (hiện là màn 3, 4) thì lộ ngay khi quét được mã của màn trước |
 | `address` | Địa chỉ, hiện cùng tên địa điểm và nút chỉ đường Google Maps |
 | `lat`, `lng` | Tọa độ địa điểm (Google Maps → nhấn giữ vào điểm → chạm vào tọa độ để sao chép). Dùng để biết khi vào bán kính 1 km (server đo lại trước khi lộ gợi ý mã QR) |
 | `mapsUrl` | *Thay cho lat/lng*: link Google Maps, script tự đọc tọa độ |
-| `clue` | Gợi ý về địa điểm, hiện ngay khi mở màn (xuống dòng bằng `\n`) |
+| `clue` | Gợi ý về địa điểm, hiện ngay khi mở màn (xuống dòng bằng `\n`). Bỏ trống (xóa hẳn dòng) thì màn đó không có bước đoán |
 | `clueImage` | URL ảnh gợi ý (tùy chọn) |
-| `answers` | Các cách viết tên địa điểm được chấp nhận. Không phân biệt hoa thường, dấu, dấu câu; câu trả lời chứa trọn một cách viết cũng tính là đúng ("tòa T8 Times City" chứa "T8"). Bỏ trống thì màn đó không có ô nhập: chỉ hiện gợi ý (không lộ tên địa điểm), vào vòng 1 km là tới bước tìm mã QR |
+| `answers` | Các cách viết tên địa điểm được chấp nhận. Không phân biệt hoa thường, dấu, dấu câu; câu trả lời chứa trọn một cách viết cũng tính là đúng ("tòa T8 Times City" chứa "T8"). Có `clue` mà bỏ trống `answers` thì không có ô nhập: chỉ hiện gợi ý (không lộ tên địa điểm) |
 | `qrHint` | Gợi ý chỗ giấu mã QR, hiện khi người chơi vào trong vòng 1 km quanh điểm đến (lưu ở cột `hints`) |
 | `successMessage` | Lời nhắn hiện ra khi quét được mã QR bí mật ở địa điểm này |
 
@@ -73,9 +73,17 @@ File kiểu cũ có `puzzle` vẫn đọc được (`puzzle` được dùng làm
 
 ```bash
 npm run content:push -- --dry     # chỉ kiểm tra file
-npm run content:push              # ghi lên Supabase + tính sẵn đường đi chặng 2→4 (3 lượt Routes API)
+npm run content:push              # ghi lên Supabase (mã QR đã có được giữ nguyên)
 ```
 Mã QR và mã chữ được tạo một lần và **giữ nguyên** khi đẩy lại, nên in QR xong vẫn sửa nội dung thoải mái. Giấu mã QR của mỗi chặng ở đúng địa điểm đó.
+
+**Tên chặng** (màn mở đầu mỗi chặng, vd. "Chặng 1: Nơi tình yêu bắt đầu") sửa trong [`src/server/story.ts`](src/server/story.ts); `numbered: false` thì chỉ hiện câu, không ghi "Chặng N".
+
+**Ảnh kỷ niệm** (hiện ngay sau khi quét được mã của chặng, xem lại được bằng nút "Xem ảnh kỷ niệm" ở màn đã qua): bỏ ảnh/video gốc vào `src/assets/stage/stage<N>/` rồi chạy
+```bash
+npm run memories:build   # cần ffmpeg; xuất bản nhẹ ra public/memories/ + src/server/memories.generated.json
+```
+Ảnh được thu nhỏ, xoay đúng chiều và xóa EXIF (có vị trí GPS); video iPhone (HEVC/HDR) được chuyển sang H.264 để phát trên mọi máy. Thứ tự hiển thị theo tên file gốc. Nhớ commit `public/memories/` và file `.generated.json` để Vercel có ảnh; file gốc không cần lên server.
 
 ### 3.2 Tài khoản người chơi
 ```bash

@@ -36,11 +36,6 @@
       "address": "Đường Thanh Niên, Tây Hồ, Hà Nội",
       "lat": 21.0545,
       "lng": 105.8371,
-      "clue": "NỘI DUNG THỬ. Hồ nước lớn nhất Hà Nội, ngắm hoàng hôn đẹp nhất.",
-      "clueImage": null,
-      "answers": [
-        "Hồ Tây"
-      ],
       "qrHint": "NỘI DUNG THỬ. Mã QR ở ghế đá thứ ba.",
       "successMessage": "Giỏi quá! Điểm đến tiếp theo đang chờ bạn."
     },
@@ -50,11 +45,6 @@
       "address": "Đường Lạc Long Quân, Tây Hồ, Hà Nội",
       "lat": 21.0679,
       "lng": 105.8235,
-      "clue": "NỘI DUNG THỬ. Nơi mọi con đường của cuộc đua gặp nhau.",
-      "clueImage": null,
-      "answers": [
-        "Lạc Long Quân"
-      ],
       "qrHint": "NỘI DUNG THỬ. Mã QR ở cổng chính.",
       "successMessage": "Bạn đã vượt qua mọi thử thách!"
     }

@@ -1,8 +1,7 @@
 /**
- * Đẩy nội dung từ content/stages.json lên Supabase và tính sẵn đường lái xe cho chặng 2..N
- * (OpenRouteService nếu có ORS_API_KEY, không thì OSRM công cộng).
+ * Đẩy nội dung từ content/stages.json lên Supabase.
  *
- *   npm run content:push              # đẩy nội dung + tính đường
+ *   npm run content:push              # đẩy nội dung
  *   npm run content:push -- --dry     # chỉ kiểm tra file, không ghi gì
  *   npm run content:push -- --file content/stages.example.json
  *
@@ -20,13 +19,14 @@ import {
   validateContent,
   type ContentFile,
 } from "../src/lib/content";
-import { computeDriveRoute } from "../src/lib/routes-api";
 import { admin, args } from "./_common.mjs";
 
 const { opts } = args();
 const file = path.resolve(String(opts.file ?? "content/stages.json"));
 if (!fs.existsSync(file)) {
-  console.error(`✗ Không thấy ${file}.\n  Sao chép mẫu: cp content/stages.example.json content/stages.json`);
+  console.error(
+    `✗ Không thấy ${file}.\n  Sao chép mẫu: cp content/stages.example.json content/stages.json`,
+  );
   process.exit(1);
 }
 const content = JSON.parse(fs.readFileSync(file, "utf8")) as ContentFile;
@@ -72,12 +72,50 @@ const stages = [...content.stages].sort((a, b) => a.order - b.order);
 console.log(`✓ ${stages.length} chặng hợp lệ trong ${path.relative(process.cwd(), file)}`);
 if (opts.dry) process.exit(0);
 
-const db = admin();
-const { data: existing, error } = await db.from("stages").select("stage_order, qr_token, manual_code");
-if (error) {
-  console.error("✗ Không đọc được bảng stages. Đã chạy supabase/schema.sql chưa?\n ", error.message);
+/** Lỗi mạng / Supabase chưa phản hồi (vd. 522 khi project vừa thức dậy) — đáng thử lại */
+const isTransient = (m: string) =>
+  /fetch failed|timed? ?out|ETIMEDOUT|ECONN|ENOTFOUND|EAI_AGAIN|\b52\d\b|<!DOCTYPE/i.test(m);
+/** Bỏ trang HTML lỗi của Cloudflare, chỉ giữ dòng tiêu đề */
+const shortMessage = (m: string) =>
+  m.match(/<title>([^<]*)<\/title>/i)?.[1]?.trim() ?? m.slice(0, 200);
+
+async function withRetry<T extends { error: { message: string } | null }>(
+  label: string,
+  run: () => PromiseLike<T>,
+): Promise<T> {
+  const TRIES = 4;
+  for (let i = 1; ; i++) {
+    const res = await run();
+    if (!res.error || i >= TRIES || !isTransient(res.error.message)) return res;
+    console.log(
+      `  Supabase chưa phản hồi khi ${label} (${shortMessage(res.error.message)}). Thử lại ${i + 1}/${TRIES} sau 5 giây…`,
+    );
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+}
+
+function fail(what: string, message: string): never {
+  if (isTransient(message)) {
+    console.error(`✗ Không kết nối được Supabase khi ${what}: ${shortMessage(message)}`);
+    console.error(
+      "  Kiểm tra mạng, hoặc mở Supabase Dashboard xem project có đang Paused không, rồi chạy lại.",
+    );
+  } else {
+    console.error(`✗ Lỗi khi ${what}: ${shortMessage(message)}`);
+    if (/relation|does not exist|column/i.test(message)) {
+      console.error(
+        "  Có thể chưa chạy supabase/schema.sql (hoặc thiếu cột mới) trong SQL Editor.",
+      );
+    }
+  }
   process.exit(1);
 }
+
+const db = admin();
+const { data: existing, error } = await withRetry("đọc bảng stages", () =>
+  db.from("stages").select("stage_order, qr_token, manual_code"),
+);
+if (error) fail("đọc bảng stages", error.message);
 const byOrder = new Map((existing ?? []).map((r) => [r.stage_order as number, r]));
 const usedCodes = new Set((existing ?? []).map((r) => r.manual_code as string));
 
@@ -93,10 +131,7 @@ function newManualCode() {
   }
 }
 
-const orsKey = process.env.ORS_API_KEY || undefined;
-console.log(orsKey ? "  Tính đường bằng OpenRouteService (dự phòng: OSRM)" : "  Tính đường bằng OSRM công cộng (chưa có ORS_API_KEY)");
-
-const rows = [];
+const rows: Record<string, unknown>[] = [];
 for (const s of stages) {
   const prev = byOrder.get(s.order);
   const row: Record<string, unknown> = {
@@ -113,44 +148,14 @@ for (const s of stages) {
     hints: qrHintsOf(s), // gợi ý chỗ giấu mã QR
     success_message: s.successMessage,
     updated_at: new Date().toISOString(),
-    // Mọi dòng phải có đủ cột khi upsert hàng loạt. Đường chặng 1 lưu theo người chơi (bảng progress).
-    route_polyline: null,
-    route_distance_m: null,
-    route_duration_s: null,
-    route_approximate: false,
   };
-  // Chặng 2..N: đường từ điểm chặng trước. Chặng 1 tính lúc người chơi bấm "Bắt đầu".
-  if (s.order > 1) {
-    const from = stages.find((x) => x.order === s.order - 1)!;
-    try {
-      const r = await computeDriveRoute(
-        { lat: from.lat!, lng: from.lng! },
-        { lat: s.lat!, lng: s.lng! },
-        { orsKey, timeoutMs: 20000 },
-      );
-      Object.assign(row, {
-        route_polyline: r.points,
-        route_distance_m: r.distanceM,
-        route_duration_s: r.durationS,
-        route_approximate: false,
-      });
-      console.log(
-        `  Đường ${s.order - 1}→${s.order}: ${(r.distanceM / 1000).toFixed(1)} km, ~${Math.round(r.durationS / 60)} phút, ${r.points.length} điểm (${r.source})`,
-      );
-    } catch (e) {
-      console.error(`✗ Không tính được đường tới chặng ${s.order}:`, (e as Error).message);
-      console.error("  Thử lại sau ít phút, hoặc thêm ORS_API_KEY (miễn phí tại openrouteservice.org).");
-      process.exit(1);
-    }
-  }
   rows.push(row);
 }
 
-const up = await db.from("stages").upsert(rows, { onConflict: "stage_order" });
-if (up.error) {
-  console.error("✗ Ghi bảng stages thất bại:", up.error.message);
-  process.exit(1);
-}
+const up = await withRetry("ghi bảng stages", () =>
+  db.from("stages").upsert(rows, { onConflict: "stage_order" }),
+);
+if (up.error) fail("ghi bảng stages", up.error.message);
 const extra = (existing ?? []).filter((r) => (r.stage_order as number) > stages.length);
 if (extra.length) {
   const del = await db.from("stages").delete().gt("stage_order", stages.length);

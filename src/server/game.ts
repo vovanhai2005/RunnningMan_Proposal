@@ -9,10 +9,19 @@ import {
   type GameStatus,
   type PublicClue,
   type PublicPlace,
+  type QuizResult,
   type ScanResult,
   type StagePhase,
 } from "@/lib/types";
 import type { GameStore, PlayerRow, ProgressRow, StageRow } from "./store/types";
+import {
+  chapterOf,
+  hasRestBefore,
+  memoriesOf,
+  publicQuiz,
+  quizConfigOf,
+  restBefore,
+} from "./story";
 
 export class GameError extends Error {
   constructor(
@@ -93,6 +102,10 @@ export class Game {
 
   private phaseOf(ctx: Ctx, stage: StageRow): StagePhase {
     const pr = this.progressFor(ctx, stage);
+    // progress.attempt_window_start: cột cũ, giờ là thời điểm nghỉ xong ở trạm nghỉ trước chặng
+    if (hasRestBefore(stage.order) && !pr?.attempt_window_start && !pr?.scanned_at) return "rest";
+    // Chặng có câu hỏi: quét mã xong (scanned_at) mà vẫn là chặng hiện tại = đang chờ trả lời
+    if (quizConfigOf(stage.order) && pr?.scanned_at) return "quiz";
     if (stage.answers.length > 0 && !pr?.solved_at) return "solve";
     return (pr?.hints_shown ?? 0) > 0 ? "search" : "travel";
   }
@@ -103,6 +116,9 @@ export class Game {
       place: this.placeOf(stage),
       clue: stage.puzzle_text ? this.clueOf(stage) : null,
       successMessage: stage.success_message,
+      chapter: chapterOf(stage.order),
+      rest: restBefore(stage.order, true),
+      memories: memoriesOf(stage.order),
     };
   }
 
@@ -134,6 +150,7 @@ export class Game {
     const phase = this.phaseOf(ctx, stage);
     // Có gợi ý mà chưa nhập đáp án (hoặc chưa `content:push` đáp án) thì không bao giờ lộ địa điểm:
     // người chơi tự đoán từ gợi ý rồi đi tới, như kiểu chơi cũ.
+    // Đang ở trạm nghỉ: màn không có gợi ý (3, 4) vẫn lộ điểm đến ngay khi quét mã màn trước
     const hidden = phase === "solve" || (stage.answers.length === 0 && !!stage.puzzle_text);
     base.stage = {
       order: stage.order,
@@ -142,7 +159,15 @@ export class Game {
       place: hidden ? null : this.placeOf(stage),
       target: phase === "travel" ? { lat: stage.lat, lng: stage.lng } : null,
       qrHint: phase === "search" ? this.qrHintOf(stage) : null,
+      chapter: chapterOf(stage.order),
+      rest: restBefore(stage.order, phase !== "rest"),
+      quiz: null,
     };
+    const quiz = quizConfigOf(stage.order);
+    const scannedAt = this.progressFor(ctx, stage)?.scanned_at;
+    if (phase === "quiz" && quiz && scannedAt) {
+      base.stage.quiz = publicQuiz(quiz, scannedAt, this.now());
+    }
     return base;
   }
 
@@ -183,6 +208,16 @@ export class Game {
     return this.toState(ctx);
   }
 
+  /** Nút "Nghỉ xong, lên đường" ở trạm nghỉ: mở chặng ngay sau trạm. */
+  async finishRest(userId: string): Promise<GameState> {
+    const ctx = await this.load(userId);
+    const stage = this.status(ctx) === "traveling" ? this.currentStage(ctx) : undefined;
+    if (stage && this.phaseOf(ctx, stage) === "rest") {
+      await this.upsert(ctx, stage, { attempt_window_start: this.now().toISOString() });
+    }
+    return this.toState(ctx);
+  }
+
   /** Ô "Đó là đâu?": gõ đúng tên địa điểm thì lộ điểm đến của chặng đang chơi. */
   async answer(userId: string, text: string): Promise<AnswerResult> {
     const ctx = await this.load(userId);
@@ -211,7 +246,7 @@ export class Game {
     const ctx = await this.load(userId);
     const stage = this.status(ctx) === "traveling" ? this.currentStage(ctx)! : undefined;
     const phase = stage && this.phaseOf(ctx, stage);
-    if (!stage || phase === "solve") {
+    if (!stage || phase === "rest" || phase === "solve") {
       return { ok: false, reason: "not_ready", message: "Hãy đoán ra địa điểm trước." };
     }
     if (phase === "search") return { ok: true, state: this.toState(ctx) };
@@ -256,7 +291,38 @@ export class Game {
     // Đúng mã của chặng đang chơi: tìm thấy địa điểm → hoàn thành, mở chặng sau
     const now = this.now().toISOString();
     const pr = this.progressFor(ctx, stage);
+    if (quizConfigOf(stage.order)) {
+      // Còn một câu hỏi: giữ lần quét đầu để đồng hồ mở gợi ý không bị đặt lại khi quét lại
+      await this.upsert(ctx, stage, {
+        scanned_at: pr?.scanned_at ?? now,
+        solved_at: pr?.solved_at ?? now,
+      });
+      return { ok: true, kind: "quiz", state: this.toState(ctx) };
+    }
     await this.upsert(ctx, stage, { scanned_at: now, solved_at: pr?.solved_at ?? now });
+    return this.complete(ctx, stage);
+  }
+
+  /** Câu hỏi sau khi quét mã: trả lời đúng là hoàn thành chặng. */
+  async quiz(userId: string, text: string): Promise<QuizResult> {
+    const ctx = await this.load(userId);
+    const stage = this.status(ctx) === "traveling" ? this.currentStage(ctx) : undefined;
+    const cfg = stage && quizConfigOf(stage.order);
+    if (!stage || !cfg || this.phaseOf(ctx, stage) !== "quiz") {
+      return { ok: false, reason: "not_ready", message: "Hãy quét mã QR trước để nhận câu hỏi." };
+    }
+    if (isCorrectAnswer(text, cfg.answers)) {
+      const r = await this.complete(ctx, stage);
+      return { ok: true, correct: true, order: r.order, successMessage: r.successMessage, state: r.state };
+    }
+    const pr = this.progressFor(ctx, stage);
+    await this.upsert(ctx, stage, { wrong_attempts: (pr?.wrong_attempts ?? 0) + 1 });
+    return { ok: true, correct: false, message: "Chưa đúng rồi. Nghĩ thêm chút nữa nhé!" };
+  }
+
+  /** Hoàn thành chặng đang chơi: mở chặng sau, hoặc về đích nếu là chặng cuối */
+  private async complete(ctx: Ctx, stage: StageRow) {
+    const now = this.now().toISOString();
     const next = stage.order + 1;
     const finished = next > ctx.stages.length;
     ctx.player = await this.store.updatePlayer(ctx.player.id, {
@@ -265,8 +331,8 @@ export class Game {
       ...(finished ? { finished_at: now } : {}),
     });
     return {
-      ok: true,
-      kind: "completed",
+      ok: true as const,
+      kind: "completed" as const,
       order: stage.order,
       successMessage: stage.success_message,
       state: this.toState(ctx),

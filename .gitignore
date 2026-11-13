@@ -45,6 +45,10 @@ next-env.d.ts
 /content/stages.json
 /print/
 
+# ảnh/video kỷ niệm gốc (nặng, riêng tư); chỉ commit bản nhẹ trong public/memories
+# do `npm run memories:build` tạo ra
+/src/assets/stage/
+
 # worker MapLibre (tự chép khi npm install / build)
 /public/vendor/
 

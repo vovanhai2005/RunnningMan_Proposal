@@ -8,14 +8,28 @@ import {
   type SubmitEvent,
   type ReactNode,
 } from "react";
-import type { CompletedStage, GameState, PublicClue, PublicStage } from "@/lib/types";
+import type {
+  CompletedStage,
+  GameState,
+  PublicClue,
+  PublicPlace,
+  PublicRest,
+  PublicStage,
+} from "@/lib/types";
 import type { GeoStatus } from "@/hooks/useGeolocation";
 import { celebrate } from "@/client/device";
 import { sfx } from "@/client/sound";
+import { ChapterOpener } from "./ChapterOpener";
 import { PlaceCard } from "./PlaceCard";
+import { QuizStep, shake } from "./Quiz";
+import { RestOpener, TeaCup } from "./RestOpener";
+import { MemoryChip } from "./story";
 import { CandyName, Medal, Ribbon, Spinner } from "./ui";
 
-/** Khi quay về bản đồ màn chơi: avatar nhảy từ màn `from` sang màn hiện tại, rồi mở bảng của màn `open` */
+/**
+ * Khi quay về bản đồ màn chơi: avatar nhảy từ điểm `from` sang điểm hiện tại, rồi mở bảng của màn `open`.
+ * Điểm x.5 là trạm nghỉ giữa màn x và màn x+1.
+ */
 export type MapIntro = { from: number | null; open: number | null };
 
 // ---- Hình học bản đồ (đơn vị viewBox, co giãn theo bề rộng màn hình) ----
@@ -48,6 +62,28 @@ function segment(a: Pt, b: Pt) {
   const k = GAP * 0.58;
   return `C ${a.x} ${a.y - k} ${b.x} ${b.y + k} ${b.x} ${b.y}`;
 }
+/** Điểm giữa đoạn a → b (đúng giữa khúc cua, vì hai tiếp tuyến đối xứng): chỗ đặt trạm nghỉ */
+const mid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+/** Tọa độ của điểm i trên bản đồ; i = x.5 là giữa màn x và x+1 */
+function ptAt(pts: Pt[], i: number): Pt {
+  return Number.isInteger(i) ? pts[i] : mid(pts[Math.floor(i)], pts[Math.ceil(i)]);
+}
+/** Chia đôi đoạn a → b (de Casteljau, t = 0.5): nửa đầu tô "đã đi", nửa sau "chưa đi" */
+function halves(a: Pt, b: Pt) {
+  const k = GAP * 0.58;
+  const p1 = { x: a.x, y: a.y - k };
+  const p2 = { x: b.x, y: b.y + k };
+  const m = mid(a, b);
+  const c = (u: Pt, v: Pt, w: Pt) => ({ x: (u.x + 2 * v.x + w.x) / 4, y: (u.y + 2 * v.y + w.y) / 4 });
+  const q1 = mid(a, p1);
+  const q2 = c(a, p1, p2);
+  const r1 = c(p1, p2, b);
+  const r2 = mid(p2, b);
+  return {
+    first: `C ${q1.x} ${q1.y} ${q2.x} ${q2.y} ${m.x} ${m.y}`,
+    second: `M ${m.x} ${m.y} C ${r1.x} ${r1.y} ${r2.x} ${r2.y} ${b.x} ${b.y}`,
+  };
+}
 function roadPath(pts: Pt[], from: number, to: number) {
   if (to <= from) return "";
   let d = `M ${pts[from].x} ${pts[from].y}`;
@@ -59,7 +95,11 @@ function roadPath(pts: Pt[], from: number, to: number) {
 const STARS_PER_LEVEL = 3;
 const NO_LOCATION: GeoStatus[] = ["denied", "unavailable", "insecure"];
 
-type Selected = { kind: "stage"; order: number } | { kind: "locked" } | { kind: "finish" };
+type Selected =
+  | { kind: "stage"; order: number }
+  | { kind: "rest"; order: number }
+  | { kind: "locked" }
+  | { kind: "finish" };
 
 export function GameMap({
   state,
@@ -72,6 +112,10 @@ export function GameMap({
   onAnswer,
   onLocationHelp,
   onReset,
+  onMemories,
+  onRest,
+  onQuiz,
+  onRefresh,
 }: {
   state: GameState;
   /** Đang ở trong bán kính 1 km quanh điểm đến của màn hiện tại */
@@ -86,26 +130,52 @@ export function GameMap({
   onLocationHelp: () => void;
   /** Xóa toàn bộ tiến độ, quay về màn chào mừng */
   onReset: () => Promise<void>;
+  /** Mở lại ảnh kỷ niệm của một màn đã qua */
+  onMemories: (stage: CompletedStage) => void;
+  /** Bấm "Nghỉ xong, lên đường" ở trạm nghỉ; trả về lời báo lỗi hoặc null */
+  onRest: () => Promise<string | null>;
+  /** Trả lời câu hỏi sau khi quét mã; trả về lời báo sai, hoặc null khi đúng */
+  onQuiz: (answer: string) => Promise<string | null>;
+  /** Lấy lại trạng thái (vd. tới giờ mở gợi ý câu hỏi) */
+  onRefresh: () => void;
 }) {
   const total = state.totalStages;
   const finishedAll = state.status === "finished";
   const current = state.stage?.order ?? total + 1;
+  /** Đang ở trạm nghỉ trước màn hiện tại: màn đó vẫn bị xích, chưa lộ gì */
+  const resting = state.stage?.phase === "rest";
+  /** Chỗ người chơi đứng trên bản đồ (x.5 = trạm nghỉ) */
+  const here = resting ? current - 0.5 : current;
   /** Chỉ số điểm cuối trên bản đồ: màn bí mật ngay sau màn hiện tại, hoặc đích khi đã về đích */
-  const last = finishedAll ? total + 1 : current + 1;
+  const last = finishedAll ? total + 1 : resting ? current : current + 1;
   const { H, pts } = useMemo(() => layout(last, finishedAll), [last, finishedAll]);
   const done = useMemo(() => new Map(state.completed.map((c) => [c.order, c])), [state.completed]);
   const stars = state.completed.length * STARS_PER_LEVEL;
+  /** Các trạm nghỉ đã tới (đã nghỉ xong, hoặc đang nghỉ) */
+  const rests = useMemo(() => {
+    const list = state.completed.flatMap((c) => (c.rest ? [{ order: c.order, rest: c.rest }] : []));
+    if (state.stage?.rest) list.push({ order: state.stage.order, rest: state.stage.rest });
+    return list;
+  }, [state.completed, state.stage]);
   /** Đã tới nơi, đang tìm mã QR: nút quét nảy lên */
   const hot = near || state.stage?.phase === "search";
 
-  const moving = intro?.from != null && intro.from !== current;
+  const moving = intro?.from != null && intro.from !== here;
+  /** Vừa tới trạm nghỉ: không phá xích, chỉ trạm nghỉ hiện ra rồi avatar nhảy vào */
+  const toRest = moving && resting;
   const [selected, setSelected] = useState<Selected | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
-  // Vị trí avatar (chỉ số điểm); khác `current` trong lúc chạy hiệu ứng chuyển màn
-  const [avatarAt, setAvatarAt] = useState(() => intro?.from ?? current);
+  /** Màn mở đầu chặng đang chiếu (số chặng); xong thì mới mở bảng của chặng đó */
+  const [opener, setOpener] = useState<number | null>(null);
+  /** Màn mở đầu trạm nghỉ đang chiếu */
+  const [restOpener, setRestOpener] = useState(false);
+  // Vị trí avatar (chỉ số điểm); khác `here` trong lúc chạy hiệu ứng chuyển màn
+  const [avatarAt, setAvatarAt] = useState(() => intro?.from ?? here);
   /** Điểm đang phá xích (màn mới hoặc đích) và màn bí mật mới đang trồi lên khỏi mây */
-  const [unlocking, setUnlocking] = useState<number | null>(() => (moving ? current : null));
-  const [emerging, setEmerging] = useState(() => moving && !finishedAll);
+  const [unlocking, setUnlocking] = useState<number | null>(() =>
+    moving && !toRest ? current : null,
+  );
+  const [emerging, setEmerging] = useState(() => moving && !toRest && !finishedAll);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
@@ -116,16 +186,23 @@ export function GameMap({
     const board = boardRef.current;
     if (!sc || !board) return;
     const scale = board.offsetWidth / W;
-    const top = board.offsetTop + pts[i].y * scale - sc.clientHeight * 0.55;
+    const top = board.offsetTop + ptAt(pts, i).y * scale - sc.clientHeight * 0.55;
     sc.scrollTo({
       top: Math.max(0, top),
       behavior: smooth ? "smooth" : "auto",
     });
   }
 
+  /** Mở màn vừa tới lượt: có tên chặng thì chiếu màn mở đầu trước, rồi mới hiện bảng */
+  function introduce(order: number) {
+    if (state.stage?.order === order && state.stage.phase === "rest") setRestOpener(true);
+    else if (state.stage?.order === order && state.stage.chapter) setOpener(order);
+    else setSelected({ kind: "stage", order });
+  }
+
   useLayoutEffect(() => {
     // Lúc mở khóa: đứng ở màn cũ, màn sắp phá xích nằm ngay phía trên trong khung nhìn
-    scrollTo(intro?.from ?? current, false);
+    scrollTo(intro?.from ?? here, false);
     // chỉ khi mở bản đồ
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -138,7 +215,18 @@ export function GameMap({
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
     const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
-    if (moving) {
+    if (toRest) {
+      // 0.4s trạm nghỉ nảy lên trên đường · 0.9s avatar nhảy vào · 1.8s màn mở đầu trạm nghỉ
+      at(450, () => sfx.arrive());
+      at(900, () => {
+        setAvatarAt(here);
+        scrollTo(here, true);
+      });
+      at(1800, () => {
+        if (intro?.open != null) introduce(intro.open);
+        onIntroDone();
+      });
+    } else if (moving) {
       at(1050, () => sfx.unlock());
       at(1900, () => {
         setAvatarAt(current);
@@ -151,7 +239,7 @@ export function GameMap({
           sfx.finish();
           setSelected({ kind: "finish" });
         } else if (intro?.open != null) {
-          setSelected({ kind: "stage", order: intro.open });
+          introduce(intro.open);
         }
         onIntroDone();
       });
@@ -160,7 +248,7 @@ export function GameMap({
       at(350, () => setSelected({ kind: "finish" }));
     } else if (intro) {
       at(350, () => {
-        if (intro.open != null) setSelected({ kind: "stage", order: intro.open });
+        if (intro.open != null) introduce(intro.open);
         onIntroDone();
       });
     }
@@ -173,16 +261,25 @@ export function GameMap({
     left: `${(p.x / W) * 100}%`,
     top: `${(p.y / H) * 100}%`,
   });
-  const reached = Math.min(current, last);
   const fullRoad = roadPath(pts, 0, last);
-  const doneRoad = roadPath(pts, 0, reached);
-  const aheadRoad = roadPath(pts, reached, last);
+  let doneRoad: string;
+  let aheadRoad: string;
+  if (resting) {
+    // Đường đã đi dừng ở trạm nghỉ, giữa màn trước và màn đang bị xích
+    const h = halves(pts[current - 1], pts[current]);
+    doneRoad = `${roadPath(pts, 0, current - 1) || `M ${pts[current - 1].x} ${pts[current - 1].y}`} ${h.first}`;
+    aheadRoad = h.second;
+  } else {
+    const reached = Math.min(current, last);
+    doneRoad = roadPath(pts, 0, reached);
+    aheadRoad = roadPath(pts, reached, last);
+  }
   // Đường tiếp tục sau màn bí mật rồi chìm vào mây — không biết còn bao xa
   const top = pts[last];
   const fogRoad = finishedAll
     ? ""
     : `M ${top.x} ${top.y} C ${top.x} ${top.y - GAP * 0.55} ${W / 2} ${top.y - GAP * 0.5} ${W / 2} ${top.y - GAP * 0.8}`;
-  const shown = finishedAll ? total : current;
+  const shown = finishedAll ? total : resting ? current - 1 : current;
 
   return (
     <main className="app-screen !p-0 lvl-world">
@@ -250,6 +347,25 @@ export function GameMap({
               );
             })}
 
+            {/* Trạm nghỉ: tách trà nằm giữa đường, giữa hai màn */}
+            {rests
+              .filter((r) => r.order <= last)
+              .map((r) => (
+                <button
+                  key={`rest-${r.order}`}
+                  className={`lvl-rest ${r.rest.done ? "is-done" : "is-current"} ${
+                    toRest && !r.rest.done ? "is-arriving" : ""
+                  }`}
+                  style={pct(ptAt(pts, r.order - 0.5))}
+                  aria-label={`${r.rest.label}, trạm nghỉ${r.rest.done ? ", đã nghỉ xong" : ""}`}
+                  onClick={() => setSelected({ kind: "rest", order: r.order })}
+                >
+                  <span className="lvl-rest-body">
+                    <TeaCup steaming={!r.rest.done} />
+                  </span>
+                </button>
+              ))}
+
             {/* Màn bí mật: bị xích, không biết là nhiệm vụ hay đích */}
             {!finishedAll && (
               <button
@@ -279,10 +395,10 @@ export function GameMap({
             {/* Avatar người chơi đứng trên màn hiện tại (hoặc trên đích) */}
             {avatarAt <= last && (
               <div
-                className={`lvl-avatar ${avatarAt !== (intro?.from ?? current) ? "is-hopping" : ""} ${
+                className={`lvl-avatar ${avatarAt !== (intro?.from ?? here) ? "is-hopping" : ""} ${
                   avatarAt === total + 1 && finishedAll ? "is-at-finish" : ""
                 }`}
-                style={pct(pts[avatarAt])}
+                style={pct(ptAt(pts, avatarAt))}
                 aria-hidden="true"
               >
                 <span className="lvl-avatar-hop">
@@ -330,8 +446,8 @@ export function GameMap({
         </div>
       </div>
 
-      {/* Nút quét mã luôn trong tầm ngón cái; nảy lên khi đã ở gần điểm bí mật */}
-      {!finishedAll && (
+      {/* Nút quét mã luôn trong tầm ngón cái; nảy lên khi đã ở gần điểm bí mật. Trạm nghỉ không có mã */}
+      {!finishedAll && !resting && (
         <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+18px)] z-10 flex justify-center">
           <button className={`lvl-scan ${hot ? "is-near" : ""}`} onClick={onScan}>
             <QrIcon />
@@ -342,6 +458,27 @@ export function GameMap({
 
       {confirmReset && (
         <ResetDialog onConfirm={onReset} onClose={() => setConfirmReset(false)} />
+      )}
+
+      {restOpener && state.stage?.rest && (
+        <RestOpener
+          rest={state.stage.rest}
+          onDone={() => {
+            setRestOpener(false);
+            setSelected({ kind: "rest", order: current });
+          }}
+        />
+      )}
+
+      {opener != null && state.stage?.chapter && (
+        <ChapterOpener
+          order={opener}
+          chapter={state.stage.chapter}
+          onDone={() => {
+            setOpener(null);
+            setSelected({ kind: "stage", order: opener });
+          }}
+        />
       )}
 
       {selected && (
@@ -366,6 +503,16 @@ export function GameMap({
             setSelected(null);
             onLocationHelp();
           }}
+          onMemories={onMemories}
+          rest={
+            selected.kind === "rest"
+              ? (rests.find((r) => r.order === selected.order)?.rest ?? null)
+              : null
+          }
+          resting={resting}
+          onRest={onRest}
+          onQuiz={onQuiz}
+          onRefresh={onRefresh}
         />
       )}
     </main>
@@ -385,6 +532,12 @@ function LevelPopup({
   onScan,
   onAnswer,
   onLocationHelp,
+  onMemories,
+  rest,
+  resting,
+  onRest,
+  onQuiz,
+  onRefresh,
 }: {
   selected: Selected;
   state: GameState;
@@ -397,6 +550,14 @@ function LevelPopup({
   onScan: () => void;
   onAnswer: (answer: string) => Promise<string | null>;
   onLocationHelp: () => void;
+  onMemories: (stage: CompletedStage) => void;
+  /** Trạm nghỉ đang chọn (khi bấm vào tách trà) */
+  rest: PublicRest | null;
+  /** Đang ở trạm nghỉ (màn hiện tại còn bị xích) */
+  resting: boolean;
+  onRest: () => Promise<string | null>;
+  onQuiz: (answer: string) => Promise<string | null>;
+  onRefresh: () => void;
 }) {
   const isFinish = selected.kind === "finish";
   useEffect(() => {
@@ -416,7 +577,9 @@ function LevelPopup({
       ? "Về đích"
       : selected.kind === "locked"
         ? "Màn bí mật"
-        : `Nhiệm vụ ${selected.order}`;
+        : selected.kind === "rest"
+          ? "Trạm nghỉ"
+          : `Nhiệm vụ ${selected.order}`;
 
   let body: ReactNode;
   if (selected.kind === "finish") {
@@ -425,12 +588,26 @@ function LevelPopup({
     body = (
       <Locked
         title="Chưa mở khóa"
-        text={`Hoàn thành nhiệm vụ ${state.stage?.order ?? ""} để phá xích màn này.`}
+        text={
+          resting
+            ? "Nghỉ xong ở trạm nghỉ để phá xích màn này."
+            : `Hoàn thành nhiệm vụ ${state.stage?.order ?? ""} để phá xích màn này.`
+        }
+        place={resting ? state.stage?.place : null}
         onClose={onClose}
       />
     );
+  } else if (selected.kind === "rest") {
+    body = rest ? (
+      <RestInfo
+        rest={rest}
+        next={!rest.done && resting ? (state.stage?.place ?? null) : null}
+        onRest={onRest}
+        onClose={onClose}
+      />
+    ) : null;
   } else if (completed) {
-    body = <DoneInfo c={completed} onClose={onClose} />;
+    body = <DoneInfo c={completed} onClose={onClose} onMemories={() => onMemories(completed)} />;
   } else if (isCurrent) {
     body = (
       <CurrentInfo
@@ -439,6 +616,9 @@ function LevelPopup({
         geoStatus={geoStatus}
         onScan={onScan}
         onAnswer={onAnswer}
+        onQuiz={onQuiz}
+        onRefresh={onRefresh}
+        serverNow={state.serverNow}
         onClose={onClose}
         onLocationHelp={onLocationHelp}
       />
@@ -447,8 +627,13 @@ function LevelPopup({
     body = null;
   }
 
+  const chapter =
+    selected.kind === "rest"
+      ? null
+      : (completed?.chapter ?? (isCurrent && !resting ? state.stage?.chapter : null));
   return (
     <CandyDialog heading={heading} onClose={onClose}>
+      {chapter && <p className="lvl-chapter">{chapter.title}</p>}
       {body}
     </CandyDialog>
   );
@@ -633,14 +818,6 @@ function QrHintCard({ hint }: { hint: string | null }) {
   );
 }
 
-function shake(el: HTMLElement | null) {
-  if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  el.animate(
-    [0, -7, 7, -5, 5, -2, 0].map((x) => ({ transform: `translateX(${x}px)` })),
-    { duration: 420, easing: "ease-out" },
-  );
-}
-
 /** Bước 1 của màn: đọc gợi ý, gõ tên địa điểm vào cuống vé để kiểm tra */
 function SolveStep({
   clue,
@@ -704,11 +881,26 @@ function SolveStep({
 }
 
 /** Màn đã xong: địa điểm (mở lại trên Google Maps), gợi ý ban đầu nếu có, lời nhắn của Ban tổ chức */
-function DoneInfo({ c, onClose }: { c: CompletedStage; onClose: () => void }) {
+function DoneInfo({
+  c,
+  onClose,
+  onMemories,
+}: {
+  c: CompletedStage;
+  onClose: () => void;
+  onMemories: () => void;
+}) {
   return (
     <div className="flex flex-col items-center text-center">
       <Stars n={STARS_PER_LEVEL} className="lvl-popup-stars" big />
       <p className="mt-1 text-[14px] font-semibold text-muted">Đã tìm thấy</p>
+
+      {c.memories.length > 0 && (
+        <div className="mt-5 w-full">
+          {/* Tiêu điểm ở đây (gần đầu bảng) để bảng dài không tự cuộn xuống nút Đóng */}
+          <MemoryChip memories={c.memories} onOpen={onMemories} autoFocus />
+        </div>
+      )}
 
       <div className="mt-5 w-full">
         <PlaceCard place={c.place} label="Địa điểm" mode="view" />
@@ -730,7 +922,11 @@ function DoneInfo({ c, onClose }: { c: CompletedStage; onClose: () => void }) {
         </figure>
       )}
 
-      <button className="btn btn-ghost mt-5 w-full" onClick={onClose} autoFocus>
+      <button
+        className="btn btn-ghost mt-5 w-full"
+        onClick={onClose}
+        autoFocus={c.memories.length === 0}
+      >
         Đóng
       </button>
     </div>
@@ -748,6 +944,9 @@ function CurrentInfo({
   geoStatus,
   onScan,
   onAnswer,
+  onQuiz,
+  onRefresh,
+  serverNow,
   onClose,
   onLocationHelp,
 }: {
@@ -756,9 +955,17 @@ function CurrentInfo({
   geoStatus: GeoStatus;
   onScan: () => void;
   onAnswer: (answer: string) => Promise<string | null>;
+  onQuiz: (answer: string) => Promise<string | null>;
+  onRefresh: () => void;
+  serverNow: string;
   onClose: () => void;
   onLocationHelp: () => void;
 }) {
+  if (stage.phase === "quiz" && stage.quiz) {
+    return (
+      <QuizStep quiz={stage.quiz} serverNow={serverNow} onAnswer={onQuiz} onHintDue={onRefresh} />
+    );
+  }
   if (stage.phase === "solve") return <SolveStep clue={stage.clue} onAnswer={onAnswer} />;
 
   if (stage.phase === "search") {
@@ -808,7 +1015,83 @@ function CurrentInfo({
   );
 }
 
-function Locked({ title, text, onClose }: { title: string; text: string; onClose: () => void }) {
+/** Trạm nghỉ: lời nhắn của Ban tổ chức, chỗ nghỉ chân, nút đi tiếp */
+function RestInfo({
+  rest,
+  next,
+  onRest,
+  onClose,
+}: {
+  rest: PublicRest;
+  /** Điểm đến của màn ngay sau trạm (đã lộ khi quét mã màn trước) */
+  next: PublicPlace | null;
+  onRest: () => Promise<string | null>;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="flex flex-col items-center text-center">
+      <span className="sticker">{rest.label}</span>
+      <figure className="lvl-rest-note mt-5 w-full text-left">
+        <blockquote className="whitespace-pre-line">{rest.note}</blockquote>
+        <figcaption>Ban tổ chức</figcaption>
+      </figure>
+      <div className="mt-5 w-full">
+        <PlaceCard place={rest.place} label="Nghỉ chân ở" mode={rest.done ? "view" : "go"} />
+      </div>
+      {next && (
+        <div className="mt-5 w-full">
+          <PlaceCard place={next} label="Điểm đến tiếp theo" />
+        </div>
+      )}
+      {rest.done ? (
+        <button className="btn btn-ghost mt-5 w-full" onClick={onClose} autoFocus>
+          Đóng
+        </button>
+      ) : (
+        <>
+          <p
+            role={error ? "alert" : undefined}
+            className={`lvl-status mt-4 ${error ? "is-wrong" : ""}`}
+          >
+            {error ??
+              (next
+                ? "Nghỉ ngơi đủ rồi thì bấm nút dưới đây để lên đường tới điểm đến tiếp theo."
+                : "Khi đã sẵn sàng, bấm nút dưới đây để mở chặng tiếp theo.")}
+          </p>
+          <button
+            className="btn btn-primary mt-5 w-full"
+            disabled={busy}
+            autoFocus
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              const err = await onRest();
+              setBusy(false);
+              if (err) setError(err);
+            }}
+          >
+            {busy ? <Spinner /> : "Nghỉ xong, lên đường"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Locked({
+  title,
+  text,
+  place,
+  onClose,
+}: {
+  title: string;
+  text: string;
+  /** Điểm đến đã biết của màn bị xích (đang ở trạm nghỉ ngay trước nó) */
+  place?: PublicPlace | null;
+  onClose: () => void;
+}) {
   return (
     <div className="flex flex-col items-center text-center">
       <div className="lvl-popup-lock" aria-hidden="true">
@@ -816,6 +1099,11 @@ function Locked({ title, text, onClose }: { title: string; text: string; onClose
       </div>
       <h2 className="display-title mt-3 text-[24px]">{title}</h2>
       <p className="mt-2 text-[16px] leading-snug text-muted">{text}</p>
+      {place && (
+        <div className="mt-5 w-full">
+          <PlaceCard place={place} label="Điểm đến tiếp theo" />
+        </div>
+      )}
       <button className="btn btn-ghost mt-6 w-full" onClick={onClose} autoFocus>
         Đóng
       </button>

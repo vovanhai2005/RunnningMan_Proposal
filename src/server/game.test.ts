@@ -3,6 +3,8 @@ import content from "../../content/stages.example.json";
 import { extractToken, Game } from "./game";
 import { MemoryStore, stagesFromContent } from "./store/memory";
 
+import { chapterOf, memoriesOf } from "./story";
+
 function setup() {
   const store = new MemoryStore(stagesFromContent(content));
   store.addPlayer("u1", "Linh");
@@ -115,6 +117,58 @@ describe("luồng chơi", () => {
     expect(r.ok && r.state.stage?.phase).toBe("search");
   });
 
+  it("trạm nghỉ trước chặng 3: lộ điểm đến ngay, nghỉ xong mới đi tiếp được", async () => {
+    await ctx.game.start("u1");
+    await ctx.game.scan("u1", { token: "demo-1" });
+    const r = await ctx.game.scan("u1", { token: "demo-2" });
+    expect(r.ok && r.kind).toBe("completed");
+    if (r.ok && r.kind === "completed") {
+      const st = r.state.stage!;
+      expect(st.order).toBe(3);
+      expect(st.phase).toBe("rest");
+      // Màn 3 không có gợi ý: quét mã màn 2 là lộ luôn điểm đến, kể cả khi còn trạm nghỉ
+      expect(st.place?.title).toBe(content.stages[2].title);
+      expect(st.target).toBeNull();
+      expect(st.qrHint).toBeNull();
+      expect(st.rest).toMatchObject({
+        label: "Chặng 2.5",
+        done: false,
+        place: { title: "24 Phố Trạm" },
+      });
+      expect(st.rest?.note).toContain("nghỉ chân");
+      expect(JSON.stringify(r)).not.toContain(content.stages[3].title);
+    }
+    // Đang nghỉ thì chưa "đến nơi" được
+    const early = await ctx.game.arrive("u1", { lat: content.stages[2].lat, lng: content.stages[2].lng });
+    expect(early.ok).toBe(false);
+    const s = await ctx.game.finishRest("u1");
+    expect(s.stage?.phase).toBe("travel");
+    expect(s.stage?.rest?.done).toBe(true);
+    // Mở lại app vẫn đã nghỉ xong; bấm lần nữa không đổi gì
+    expect((await ctx.game.finishRest("u1")).stage?.phase).toBe("travel");
+  });
+
+  it("màn không có gợi ý (màn 3, 4): nghỉ xong là lộ ngay tên + địa chỉ", async () => {
+    await ctx.game.start("u1");
+    await ctx.game.scan("u1", { token: "demo-1" });
+    await ctx.game.scan("u1", { token: "demo-2" });
+    const r = { ok: true, kind: "completed", state: await ctx.game.finishRest("u1") } as const;
+    if (r.ok) {
+      expect(r.state.stage?.order).toBe(3);
+      expect(r.state.stage?.phase).toBe("travel");
+      expect(r.state.stage?.place).toEqual({
+        title: content.stages[2].title,
+        address: content.stages[2].address,
+        lat: content.stages[2].lat,
+        lng: content.stages[2].lng,
+      });
+      expect(r.state.stage?.qrHint).toBeNull();
+      expect(JSON.stringify(r)).not.toContain(content.stages[3].title);
+    }
+    const near = await ctx.game.arrive("u1", { lat: content.stages[2].lat, lng: content.stages[2].lng });
+    expect(near.ok && near.state.stage?.qrHint).toBe(content.stages[2].qrHint);
+  });
+
   it("chưa đoán ra địa điểm thì báo đến nơi bị từ chối", async () => {
     await ctx.game.start("u1");
     const r = await ctx.game.arrive("u1", { lat: content.stages[0].lat, lng: content.stages[0].lng });
@@ -157,6 +211,25 @@ describe("luồng chơi", () => {
     }
   });
 
+  it("tên chặng chỉ lộ cho chặng đang mở; ảnh kỷ niệm chỉ có sau khi quét được mã", async () => {
+    const s = await ctx.game.start("u1");
+    expect(s.stage?.chapter).toEqual(chapterOf(1));
+    const raw = JSON.stringify(s);
+    for (const order of [2, 3, 4]) expect(raw).not.toContain(chapterOf(order)!.title);
+    for (const m of [1, 2, 3].flatMap(memoriesOf)) expect(raw).not.toContain(m.src);
+
+    const r = await ctx.game.scan("u1", { token: "demo-1" });
+    expect(r.ok && r.kind).toBe("completed");
+    if (r.ok && r.kind === "completed") {
+      const done = r.state.completed.find((c) => c.order === 1)!;
+      expect(done.memories).toEqual(memoriesOf(1));
+      expect(done.chapter).toEqual(chapterOf(1));
+      expect(r.state.stage?.chapter).toEqual(chapterOf(2));
+      const after = JSON.stringify(r.state);
+      for (const m of memoriesOf(2)) expect(after).not.toContain(m.src);
+    }
+  });
+
   it("quét bằng mã chữ in dưới QR cũng được", async () => {
     await ctx.game.start("u1");
     const r = await ctx.game.scan("u1", { code: "rm 1" });
@@ -178,18 +251,68 @@ describe("luồng chơi", () => {
       const before = await ctx.game.getState("u1");
       expect(before.stage?.order).toBe(i + 1);
       const st = content.stages[i];
-      expect((await ctx.game.answer("u1", st.answers[0])).ok).toBe(true);
+      if (before.stage?.phase === "rest") await ctx.game.finishRest("u1");
+      if (st.answers) expect((await ctx.game.answer("u1", st.answers[0])).ok).toBe(true);
       expect((await ctx.game.arrive("u1", { lat: st.lat, lng: st.lng })).ok).toBe(true);
       ctx.clock.advance(10 * 60_000);
-      const r = await ctx.game.scan("u1", { token: `demo-${i + 1}` });
-      expect(r.ok && r.kind).toBe("completed");
-      if (r.ok && r.kind === "completed") expect(r.state.status).toBe(i === 3 ? "finished" : "traveling");
+      const scanned = await ctx.game.scan("u1", { token: `demo-${i + 1}` });
+      if (i === 3) {
+        // Chặng cuối: quét xong còn câu hỏi
+        expect(scanned.ok && scanned.kind).toBe("quiz");
+        const q = await ctx.game.quiz("u1", "Deadpool!");
+        expect(q.ok && q.correct).toBe(true);
+        if (q.ok && q.correct) expect(q.state.status).toBe("finished");
+        continue;
+      }
+      expect(scanned.ok && scanned.kind).toBe("completed");
+      if (scanned.ok && scanned.kind === "completed") expect(scanned.state.status).toBe("traveling");
     }
     const end = await ctx.game.getState("u1");
     expect(end.status).toBe("finished");
     expect(end.stage).toBeNull();
     expect(end.player.finishedAt).not.toBeNull();
     expect(end.completed.map((c) => c.place.title)).toEqual(content.stages.map((s) => s.title));
+  });
+
+  it("chặng 4: quét mã xong hiện câu hỏi; gợi ý chỉ mở sau 5 phút chưa trả lời đúng", async () => {
+    await ctx.game.start("u1");
+    ctx.store.players[0].current_stage = 4;
+    const r = await ctx.game.scan("u1", { token: "demo-4" });
+    expect(r.ok && r.kind).toBe("quiz");
+    if (!(r.ok && r.kind === "quiz")) return;
+    const quiz = r.state.stage?.quiz;
+    expect(r.state.stage?.phase).toBe("quiz");
+    expect(quiz?.question).toContain("Món quà đầu tiên");
+    expect(quiz?.hint).toBeNull();
+    // Không lộ đáp án hay gợi ý trước giờ
+    expect(JSON.stringify(r).toLowerCase()).not.toContain("deadpool");
+    expect(JSON.stringify(r)).not.toContain("phong bì");
+
+    const wrong = await ctx.game.quiz("u1", "con mèo");
+    expect(wrong).toMatchObject({ ok: true, correct: false });
+
+    ctx.clock.advance(4 * 60_000 + 59_000);
+    expect((await ctx.game.getState("u1")).stage?.quiz?.hint).toBeNull();
+    // Quét lại không đặt lại đồng hồ gợi ý
+    const again = await ctx.game.scan("u1", { token: "demo-4" });
+    expect(again.ok && again.kind).toBe("quiz");
+    ctx.clock.advance(2_000);
+    const s = await ctx.game.getState("u1");
+    expect(s.stage?.quiz?.hint).toContain("phong bì");
+    expect(s.status).toBe("traveling");
+
+    const right = await ctx.game.quiz("u1", "con Dead-pool");
+    expect(right.ok && right.correct).toBe(true);
+    if (right.ok && right.correct) {
+      expect(right.order).toBe(4);
+      expect(right.state.status).toBe("finished");
+    }
+  });
+
+  it("chưa quét mã chặng 4 thì chưa trả lời câu hỏi được", async () => {
+    await ctx.game.start("u1");
+    ctx.store.players[0].current_stage = 4;
+    expect(await ctx.game.quiz("u1", "deadpool")).toMatchObject({ ok: false, reason: "not_ready" });
   });
 
   it("chơi lại từ đầu: xóa tiến độ, về màn chào mừng, chơi lại được như mới", async () => {
@@ -215,7 +338,8 @@ describe("luồng chơi", () => {
     expect(s.status).toBe("traveling");
     expect(s.stage?.order).toBe(3);
     expect(s.completed.map((c) => c.order)).toEqual([1, 2]);
-    expect(s.stage?.phase).toBe("solve");
+    expect(s.stage?.phase).toBe("rest");
+    expect((await ctx.game.finishRest("u1")).stage?.phase).toBe("travel");
     const r = await ctx.game.scan("u1", { token: "demo-3" });
     expect(r.ok && r.kind).toBe("completed");
   });
